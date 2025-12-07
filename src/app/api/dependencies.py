@@ -1,7 +1,7 @@
 from typing import AsyncIterator
 
-from fastapi import Request
 from aio_pika.abc import AbstractRobustConnection
+from fastapi import Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from sqlalchemy.ext.asyncio import AsyncSession
 

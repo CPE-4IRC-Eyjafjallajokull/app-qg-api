@@ -19,7 +19,7 @@ async def events_stream():
     async def event_source():
         log.info("events.connected", env=settings.environment)
         try:
-            yield f"data: {json.dumps({'event': 'connected', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
+            yield f"data: {json.dumps({'event': 'connected', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"  # noqa: E501
             while True:
                 payload = {
                     "event": "heartbeat",
