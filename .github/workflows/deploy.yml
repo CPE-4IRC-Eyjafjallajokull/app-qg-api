@@ -21,6 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ML_DEPLOY_HOST }}
+          username: ${{ secrets.ML_DEPLOY_USER }}
+          key: ${{ secrets.ML_DEPLOY_KEY }}
+          port: ${{ secrets.ML_DEPLOY_PORT }}
+          script: |
+            sudo mkdir -p /opt/mathislambert.fr/applications/app-qg-api
+            sudo chown -R $USER:$USER /opt/mathislambert.fr/applications/app-qg-api
+
       - name: Upload compose file to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -37,7 +48,6 @@ jobs:
           APP_NAME: ${{ vars.APP_NAME || 'app-qg-api' }}
           APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
           APP_LOG_LEVEL: ${{ vars.APP_LOG_LEVEL || 'INFO' }}
-          APP_MONGO_DSN: ${{ secrets.APP_MONGO_DSN }}
           APP_POSTGRES_DSN: ${{ secrets.APP_POSTGRES_DSN }}
           APP_RABBITMQ_DSN: ${{ secrets.APP_RABBITMQ_DSN }}
           API_HOST: ${{ vars.API_HOST }}
@@ -47,7 +57,7 @@ jobs:
           key: ${{ secrets.ML_DEPLOY_KEY }}
           port: ${{ secrets.ML_DEPLOY_PORT }}
           script_stop: true
-          envs: GITHUB_REF_NAME,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_MONGO_DSN,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
+          envs: GITHUB_REF_NAME,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
           script: |
             set -euo pipefail
             OWNER='${{ github.repository_owner }}'
@@ -81,7 +91,6 @@ jobs:
               APP_NAME="$APP_NAME" \
               APP_ENVIRONMENT="$APP_ENVIRONMENT" \
               APP_LOG_LEVEL="$APP_LOG_LEVEL" \
-              APP_MONGO_DSN="$APP_MONGO_DSN" \
               APP_POSTGRES_DSN="$APP_POSTGRES_DSN" \
               APP_RABBITMQ_DSN="$APP_RABBITMQ_DSN" \
               API_HOST="$API_HOST" \

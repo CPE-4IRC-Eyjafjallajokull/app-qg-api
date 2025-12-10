@@ -23,12 +23,9 @@ services:
       - APP_ENVIRONMENT=production
       - APP_DEBUG=false
       - APP_LOG_LEVEL=INFO
-      - APP_MONGO_DSN=mongodb://mongo:27017/app
       - APP_POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/app
       - APP_RABBITMQ_DSN=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      mongo:
-        condition: service_started
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -60,12 +57,9 @@ services:
       - APP_ENVIRONMENT=development
       - APP_DEBUG=true
       - APP_LOG_LEVEL=DEBUG
-      - APP_MONGO_DSN=mongodb://mongo:27017/app
       - APP_POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/app
       - APP_RABBITMQ_DSN=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      mongo:
-        condition: service_started
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -74,20 +68,6 @@ services:
       - app-network
     profiles:
       - dev
-
-  # ---------------------------------------------------------------------------
-  # MongoDB
-  # ---------------------------------------------------------------------------
-  mongo:
-    image: mongo:7
-    container_name: app-qg-mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - app-network
-    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # PostgreSQL
@@ -140,7 +120,6 @@ services:
 # Volumes
 # -----------------------------------------------------------------------------
 volumes:
-  mongo-data:
   postgres-data:
   rabbitmq-data:
 
