@@ -1,6 +1,7 @@
 """
 Example routes demonstrating User and Article model usage with SQLAlchemy.
 """
+
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -195,7 +196,9 @@ async def get_user_articles(
 ):
     """Get all articles by a specific user."""
     result = await session.execute(
-        select(Article).where(Article.author_id == user_id).order_by(Article.created_at.desc())
+        select(Article)
+        .where(Article.author_id == user_id)
+        .order_by(Article.created_at.desc())
     )
     articles = result.scalars().all()
     return articles

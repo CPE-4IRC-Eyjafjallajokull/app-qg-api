@@ -1,5 +1,6 @@
 from typing import AsyncIterator, Optional
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -16,13 +17,12 @@ class PostgresManager:
 
     def __init__(self, settings: Settings):
         self._dsn = settings.postgres_dsn
-        self._echo = settings.debug
         self._engine: Optional[AsyncEngine] = None
         self._sessionmaker: Optional[async_sessionmaker[AsyncSession]] = None
 
     def engine(self) -> AsyncEngine:
         if not self._engine:
-            self._engine = create_async_engine(self._dsn, echo=self._echo, future=True)
+            self._engine = create_async_engine(self._dsn, echo=False, future=True)
             self._sessionmaker = async_sessionmaker(
                 self._engine, expire_on_commit=False
             )
@@ -47,6 +47,11 @@ class PostgresManager:
         """Drop all tables defined in models."""
         async with self.engine().begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+
+    async def connect(self) -> None:
+        """Verify database connection is working."""
+        async with self.engine().connect() as conn:
+            await conn.execute(text("SELECT 1"))
 
     async def close(self) -> None:
         if self._engine:

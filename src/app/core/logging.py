@@ -13,6 +13,14 @@ def configure_logging(log_level: str = "INFO") -> None:
         stream=sys.stdout,
     )
 
+    # Reduce SQLAlchemy noise
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
+
+    # Reduce aio_pika/aiormq noise
+    logging.getLogger("aio_pika").setLevel(logging.WARNING)
+    logging.getLogger("aiormq").setLevel(logging.WARNING)
+
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,

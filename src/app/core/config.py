@@ -15,9 +15,11 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
 
-    mongo_dsn: str = "mongodb://localhost:27017/app"
     postgres_dsn: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/app"
     rabbitmq_dsn: str = "amqp://guest:guest@localhost:5672/"
+
+    # CORS settings
+    cors_origins: list[str] = ["*"]
 
     events_ping_interval_seconds: int = 25
 

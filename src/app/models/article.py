@@ -1,6 +1,7 @@
 """
 Article model for SQLAlchemy.
 """
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -20,7 +21,9 @@ class Article(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     author_id: Mapped[int] = mapped_column(
