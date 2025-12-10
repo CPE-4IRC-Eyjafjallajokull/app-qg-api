@@ -23,13 +23,13 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --all-extras
 
       - name: Run Ruff linter
-        run: ruff check src tests
+        run: uv run ruff check src tests
 
       - name: Run Ruff formatter check
-        run: ruff format --check src tests
+        run: uv run ruff format --check src tests
 
   test:
     name: Test
@@ -47,10 +47,10 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --all-extras
 
       - name: Run tests with coverage
-        run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v4

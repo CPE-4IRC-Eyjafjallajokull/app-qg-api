@@ -12,7 +12,9 @@ def client_transport():
 
 @pytest.mark.asyncio
 async def test_health_endpoint(client_transport):
-    async with AsyncClient(transport=client_transport, base_url="http://testserver") as client:
+    async with AsyncClient(
+        transport=client_transport, base_url="http://testserver"
+    ) as client:
         response = await client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
