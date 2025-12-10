@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Builder - Install dependencies
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN uv venv /app/.venv && \
 # -----------------------------------------------------------------------------
 # Stage 2: Production - Minimal runtime image
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
