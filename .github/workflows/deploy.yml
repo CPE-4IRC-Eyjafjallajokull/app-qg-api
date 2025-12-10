@@ -1,18 +1,21 @@
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: ["Docker Build & Push"]
-    types:
-      - completed
-    branches: [main]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     environment:
       name: PROD
       url: https://${{ vars.API_HOST }}
@@ -20,17 +23,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Prepare deployment directory
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ML_DEPLOY_HOST }}
-          username: ${{ secrets.ML_DEPLOY_USER }}
-          key: ${{ secrets.ML_DEPLOY_KEY }}
-          port: ${{ secrets.ML_DEPLOY_PORT }}
-          script: |
-            sudo mkdir -p /opt/mathislambert.fr/applications/app-qg-api
-            sudo chown -R $USER:$USER /opt/mathislambert.fr/applications/app-qg-api
 
       - name: Upload compose file to server
         uses: appleboy/scp-action@v0.1.7
@@ -40,7 +32,7 @@ jobs:
           key: ${{ secrets.ML_DEPLOY_KEY }}
           port: ${{ secrets.ML_DEPLOY_PORT }}
           source: "compose.prod.yaml"
-          target: "/opt/app-qg-api"
+          target: "/opt/mathislambert.fr/applications/app-qg-api"
 
       - name: Remote deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -61,14 +53,14 @@ jobs:
           script: |
             set -euo pipefail
             OWNER='${{ github.repository_owner }}'
-            TAG="${GITHUB_REF_NAME:-latest}"
-            INSTALL_DIR=/opt/app-qg-api
+            TAG="$GITHUB_REF_NAME"
+            INSTALL_DIR=/opt/mathislambert.fr/applications/app-qg-api
             OWNER_LC=$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')
 
-            # Ensure directories and networks exist
-            mkdir -p "$INSTALL_DIR"
+            # Ensure networks exist
             docker network create proxy || true
             docker network create databases || true
+            docker network create monitor || true
 
             # Login to GHCR
             if [ -n '${{ secrets.GITHUB_TOKEN }}' ]; then
