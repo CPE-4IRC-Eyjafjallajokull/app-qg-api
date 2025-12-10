@@ -16,6 +16,9 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: PROD
       url: https://${{ vars.API_HOST }}
