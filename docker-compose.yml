@@ -1,0 +1,152 @@
+# =============================================================================
+# Docker Compose for app-qg-api
+# =============================================================================
+# Usage:
+#   Production:  docker compose up -d
+#   Development: docker compose --profile dev up -d
+#   API only:    docker compose up api -d
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # API Service - Production
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-qg-api
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENVIRONMENT=production
+      - APP_DEBUG=false
+      - APP_LOG_LEVEL=INFO
+      - APP_MONGO_DSN=mongodb://mongo:27017/app
+      - APP_POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/app
+      - APP_RABBITMQ_DSN=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      mongo:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # API Service - Development (with hot reload)
+  # ---------------------------------------------------------------------------
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-qg-api-dev
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src:cached
+    environment:
+      - APP_ENVIRONMENT=development
+      - APP_DEBUG=true
+      - APP_LOG_LEVEL=DEBUG
+      - APP_MONGO_DSN=mongodb://mongo:27017/app
+      - APP_POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/app
+      - APP_RABBITMQ_DSN=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      mongo:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - dev
+
+  # ---------------------------------------------------------------------------
+  # MongoDB
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: mongo:7
+    container_name: app-qg-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: app-qg-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/schemas:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # RabbitMQ
+  # ---------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: app-qg-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  mongo-data:
+  postgres-data:
+  rabbitmq-data:
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge

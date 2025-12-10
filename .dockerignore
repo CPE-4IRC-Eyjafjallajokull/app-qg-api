@@ -1,0 +1,74 @@
+# =============================================================================
+# Docker ignore file
+# =============================================================================
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build artifacts
+*.egg-info/
+*.egg
+dist/
+build/
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (keep README for build)
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Environment files (sensitive)
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (avoid recursive copies)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Tests (not needed in production image)
+tests/
+
+# Logs
+*.log
+
+# UV cache
+.uv/
+uv.lock

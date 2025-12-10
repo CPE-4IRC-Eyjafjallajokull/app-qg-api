@@ -1,57 +1,142 @@
-## Overview
+# app-qg-api
 
-Starter FastAPI service with async-ready connectors for MongoDB, PostgreSQL, and RabbitMQ, JSON logging via structlog, and an HTTP SSE `/events` stream for real-time pushes.
+API FastAPI avec connecteurs async pour MongoDB, PostgreSQL et RabbitMQ, logging JSON via structlog, et flux SSE `/events` pour les notifications temps réel.
 
-## Project layout
+## Structure du projet
 
-- `src/app/main.py` — FastAPI app factory with lifespan-managed connectors.
-- `src/app/core/config.py` — Pydantic settings (env prefix `APP_`).
-- `src/app/core/logging.py` — stdlib + structlog JSON logger setup.
-- `src/app/api/routes` — HTTP routes (`/health`, `/events` SSE).
-- `src/app/services/db` — MongoDB (motor) and Postgres (SQLAlchemy async) helpers.
-- `src/app/services/messaging` — RabbitMQ (aio-pika) helper.
-- `tests/` — smoke tests for health and `/events`.
-- `.github/workflows/ci.yml` — lint + test on push/PR.
+```txt
+src/app/
+├── main.py              # Factory FastAPI + lifespan
+├── core/
+│   ├── config.py        # Settings Pydantic (prefix APP_)
+│   └── logging.py       # Configuration structlog
+├── api/
+│   ├── dependencies.py  # Dépendances FastAPI
+│   └── routes/          # Routes HTTP (/health, /events)
+├── models/              # Modèles de données
+└── services/
+    ├── db/              # MongoDB (motor) + Postgres (SQLAlchemy async)
+    └── messaging/       # RabbitMQ (aio-pika)
+```
+
+---
 
 ## Quickstart
 
-Prereqs: Python 3.12+, MongoDB/PostgreSQL/RabbitMQ if you want to connect to them.
+### Prérequis
 
-1) Install dependencies (dev extras include lint/test tools):
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (gestionnaire de packages)
+- Docker (optionnel)
+
+### Installation
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 ```
 
-2) Run the API:
+---
+
+## 🚀 Lancement
+
+### Sans Docker
+
+#### Développement (hot reload)
+
 ```bash
-uvicorn app.main:app --reload --app-dir src
+uv run uvicorn app.main:app --reload --reload-dir src --app-dir src
 ```
 
-3) Try it:
-- Health check: `curl http://localhost:8000/health`
-- HTTP stream (SSE-style): `curl -N http://localhost:8000/events`
+> L'API est disponible sur <http://localhost:8000>
 
-## Configuration
+#### Production
 
-Environment variables (loaded from `.env` if present, prefixed with `APP_`):
-- `APP_APP_NAME` — service name (`app-qg-api`).
-- `APP_DEBUG` — toggle debug mode (`false`).
-- `APP_LOG_LEVEL` — e.g. `INFO`, `DEBUG`.
-- `APP_MONGO_DSN` — `mongodb://user:pass@localhost:27017/db`.
-- `APP_POSTGRES_DSN` — `postgresql+asyncpg://user:pass@localhost:5432/db`.
-- `APP_RABBITMQ_DSN` — `amqp://user:pass@localhost:5672/`.
-- `APP_EVENTS_PING_INTERVAL_SECONDS` — keepalive interval for `/events` stream.
+```bash
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
 
-Connectors are created lazily and stored on `app.state` (`mongo`, `postgres`, `rabbitmq`). Dependency helpers live in `app/api/dependencies.py` for reuse in routes.
+---
 
-## Logging
+### Avec Docker
 
-`configure_logging` sets stdlib logging and structlog to emit JSON lines to stdout with level, timestamp, and tracebacks. Bind contextual fields with `get_logger(__name__).bind(...)`.
+#### Build de l'image
 
-## CI
+```bash
+docker build -t app-qg-api .
+```
 
-GitHub Actions workflow runs on pushes/PRs:
+#### Développement (hot reload + services)
+
+```bash
+docker compose --profile dev up
+```
+
+> - API sur <http://localhost:8000> avec hot reload
+> - MongoDB sur localhost:27017
+> - PostgreSQL sur localhost:5432
+> - RabbitMQ sur localhost:5672 (UI: <http://localhost:15672>)
+
+#### Production
+
+```bash
+docker compose up -d
+```
+
+#### API seule (sans les bases de données)
+
+```bash
+docker run -p 8000:8000 app-qg-api
+```
+
+---
+
+## 🧪 Tests
+
+```bash
+# Vérifier que l'API fonctionne
+curl http://localhost:8000/health
+
+# Tester le flux SSE
+curl -N http://localhost:8000/events
+
+# Lancer les tests
+uv run pytest
+```
+
+---
+
+## ⚙️ Configuration
+
+Variables d'environnement (fichier `.env` supporté, prefix `APP_`) :
+
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `APP_APP_NAME` | Nom du service | `app-qg-api` |
+| `APP_DEBUG` | Mode debug | `false` |
+| `APP_LOG_LEVEL` | Niveau de log | `INFO` |
+| `APP_MONGO_DSN` | URI MongoDB | `mongodb://localhost:27017/app` |
+| `APP_POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://...` |
+| `APP_RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
+| `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `15` |
+
+---
+
+## 📝 Logging
+
+Logging JSON structuré via structlog :
+
+```python
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+logger.bind(user_id=123).info("User logged in")
+```
+
+---
+
+## CI/CD
+
+GitHub Actions sur push/PR :
+
 - `ruff check src tests`
 - `pytest`
