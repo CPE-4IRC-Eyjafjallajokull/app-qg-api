@@ -48,12 +48,12 @@ jobs:
           context: .
           push: false
           load: true
-          tags: ${{ github.repository }}:scan
+          tags: app-qg-api:scan
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ github.repository }}:scan
+          image-ref: app-qg-api:scan
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
