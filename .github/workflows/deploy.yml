@@ -65,7 +65,7 @@ jobs:
           key: ${{ secrets.ML_DEPLOY_KEY }}
           port: ${{ secrets.ML_DEPLOY_PORT }}
           script_stop: true
-          envs: GITHUB_REF_NAME,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
+          envs: GITHUB_REF_NAME,APP_VERSION,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
           script: |
             set -euo pipefail
             OWNER='${{ github.repository_owner }}'
