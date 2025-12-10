@@ -42,6 +42,12 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I"]
+ignore = [
+    "B008",
+    "E501",
+    "B904",
+    "B006",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

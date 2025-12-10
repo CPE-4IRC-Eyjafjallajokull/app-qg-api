@@ -95,7 +95,7 @@ async def list_users(
 ):
     """List all users with pagination."""
     result = await session.execute(
-        select(User).where(User.is_active == True).offset(skip).limit(limit)
+        select(User).where(User.is_active).offset(skip).limit(limit)
     )
     users = result.scalars().all()
     return users
