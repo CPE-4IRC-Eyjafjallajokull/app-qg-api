@@ -33,6 +33,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Wait for image to propagate to GHCR
+        run: |
+          echo "⏳ Waiting 30 seconds for image to propagate to GHCR..."
+          sleep 30
+          echo "✅ Ready to deploy!"
+
       - name: Upload compose file to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -46,6 +52,7 @@ jobs:
       - name: Remote deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
+          APP_VERSION: ${{ github.ref_name || github.sha }}
           APP_NAME: ${{ vars.APP_NAME || 'app-qg-api' }}
           APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
           APP_LOG_LEVEL: ${{ vars.APP_LOG_LEVEL || 'INFO' }}
@@ -77,6 +84,7 @@ jobs:
             fi
 
             # Set default values
+            APP_VERSION=${APP_VERSION:-latest}
             APP_NAME=${APP_NAME:-app-qg-api}
             APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
             APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
@@ -89,6 +97,7 @@ jobs:
 
             # Deploy with environment variables
             OWNER="$OWNER_LC" IMAGE_TAG="$TAG" \
+              APP_VERSION="$APP_VERSION" \
               APP_NAME="$APP_NAME" \
               APP_ENVIRONMENT="$APP_ENVIRONMENT" \
               APP_LOG_LEVEL="$APP_LOG_LEVEL" \

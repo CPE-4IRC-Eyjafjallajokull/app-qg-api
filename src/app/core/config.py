@@ -10,7 +10,8 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="APP_"
     )
 
-    app_name: str = "app-qg-api"
+    version: str = "latest"
+    name: str = "app-qg-api"
     debug: bool = False
     environment: str = "local"
     log_level: str = "INFO"

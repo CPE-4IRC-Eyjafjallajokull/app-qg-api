@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from app.api.routes import router as api_router
 from app.core.config import settings
@@ -11,7 +12,7 @@ from app.services.events import SSEManager
 from app.services.messaging.rabbitmq import RabbitMQManager
 
 configure_logging(settings.log_level)
-log = get_logger(__name__).bind(app=settings.app_name)
+log = get_logger(__name__).bind(app=settings.name)
 
 
 @asynccontextmanager
@@ -39,10 +40,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.app_name,
-    version="0.1.0",
+    title=settings.name,
+    version=settings.version,
     debug=settings.debug,
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # CORS middleware
@@ -55,3 +59,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url=app.docs_url or "/docs")
