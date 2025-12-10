@@ -1,0 +1,94 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Docker Build & Push"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment:
+      name: PROD
+      url: https://${{ vars.API_HOST }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload compose file to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ML_DEPLOY_HOST }}
+          username: ${{ secrets.ML_DEPLOY_USER }}
+          key: ${{ secrets.ML_DEPLOY_KEY }}
+          port: ${{ secrets.ML_DEPLOY_PORT }}
+          source: "compose.prod.yaml"
+          target: "/opt/app-qg-api"
+
+      - name: Remote deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'app-qg-api' }}
+          APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
+          APP_LOG_LEVEL: ${{ vars.APP_LOG_LEVEL || 'INFO' }}
+          APP_MONGO_DSN: ${{ secrets.APP_MONGO_DSN }}
+          APP_POSTGRES_DSN: ${{ secrets.APP_POSTGRES_DSN }}
+          APP_RABBITMQ_DSN: ${{ secrets.APP_RABBITMQ_DSN }}
+          API_HOST: ${{ vars.API_HOST }}
+        with:
+          host: ${{ secrets.ML_DEPLOY_HOST }}
+          username: ${{ secrets.ML_DEPLOY_USER }}
+          key: ${{ secrets.ML_DEPLOY_KEY }}
+          port: ${{ secrets.ML_DEPLOY_PORT }}
+          script_stop: true
+          envs: GITHUB_REF_NAME,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_MONGO_DSN,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
+          script: |
+            set -euo pipefail
+            OWNER='${{ github.repository_owner }}'
+            TAG="${GITHUB_REF_NAME:-latest}"
+            INSTALL_DIR=/opt/app-qg-api
+            OWNER_LC=$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')
+
+            # Ensure directories and networks exist
+            mkdir -p "$INSTALL_DIR"
+            docker network create proxy || true
+            docker network create databases || true
+
+            # Login to GHCR
+            if [ -n '${{ secrets.GITHUB_TOKEN }}' ]; then
+              printf '%s' '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+            fi
+
+            # Set default values
+            APP_NAME=${APP_NAME:-app-qg-api}
+            APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
+            APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
+            API_HOST=${API_HOST:-api.example.com}
+
+            cd "$INSTALL_DIR"
+            
+            # Pull latest image
+            OWNER="$OWNER_LC" IMAGE_TAG="$TAG" docker compose -f compose.prod.yaml pull
+
+            # Deploy with environment variables
+            OWNER="$OWNER_LC" IMAGE_TAG="$TAG" \
+              APP_NAME="$APP_NAME" \
+              APP_ENVIRONMENT="$APP_ENVIRONMENT" \
+              APP_LOG_LEVEL="$APP_LOG_LEVEL" \
+              APP_MONGO_DSN="$APP_MONGO_DSN" \
+              APP_POSTGRES_DSN="$APP_POSTGRES_DSN" \
+              APP_RABBITMQ_DSN="$APP_RABBITMQ_DSN" \
+              API_HOST="$API_HOST" \
+              docker compose -f compose.prod.yaml up -d --remove-orphans
+
+            # Cleanup old images
+            docker image prune -f || true
+
+            echo "✅ Deployment completed successfully!"
+            echo "🚀 API available at: https://$API_HOST"
