@@ -23,17 +23,13 @@ dependencies = [
     "httpx>=0.28.1",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ruff>=0.7.0",
     "pytest>=8.3.0",
-    "pytest-asyncio>=0.23.8",
-    "httpx>=0.27.0",
-]
-
-[dependency-groups]
-dev = [
-    "app-qg-api",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.28.1",
 ]
 
 [tool.ruff]
@@ -51,6 +47,7 @@ ignore = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["src"]
 testpaths = ["tests"]
 
