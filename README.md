@@ -59,7 +59,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ## 🔐 Auth Keycloak
 
-- Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/events`).
+- Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/events`). La route `/health` et la doc (`/docs`) restent publiques.
 - Configuration minimale :
 
 ```env
@@ -110,8 +110,8 @@ docker run -p 8000:8000 app-qg-api
 ## 🧪 Tests
 
 ```bash
-# Vérifier que l'API fonctionne
-curl -H "Authorization: Bearer <token>" http://localhost:8000/health
+# Vérifier que l'API fonctionne (public)
+curl http://localhost:8000/health
 
 # Tester le flux SSE
 curl -N -H "Authorization: Bearer <token>" http://localhost:8000/events
