@@ -28,6 +28,7 @@ class RabbitMQManager:
 
     def __init__(self, settings: RabbitMQSettings):
         self._dsn = settings.dsn
+        self._connect_timeout = settings.connect_timeout_seconds
         self._connection: Optional[AbstractRobustConnection] = None
         self._channel: Optional[AbstractRobustChannel] = None
         self._consumers: dict[str, asyncio.Task] = {}
@@ -35,17 +36,25 @@ class RabbitMQManager:
 
     async def get_connection(self) -> AbstractRobustConnection:
         """Get or create a robust RabbitMQ connection."""
+        if self._connection and not self._connection.is_closed:
+            return self._connection
+
         async with self._lock:
             if not self._connection or self._connection.is_closed:
-                self._connection = await aio_pika.connect_robust(self._dsn)
+                self._connection = await aio_pika.connect_robust(
+                    self._dsn, timeout=self._connect_timeout
+                )
                 log.info("rabbitmq.connection.established")
         return self._connection
 
     async def get_channel(self) -> AbstractRobustChannel:
         """Get or create a channel from the connection."""
+        if self._channel and not self._channel.is_closed:
+            return self._channel
+
+        connection = await self.get_connection()
         async with self._lock:
             if not self._channel or self._channel.is_closed:
-                connection = await self.get_connection()
                 self._channel = await connection.channel()
                 log.info("rabbitmq.channel.opened")
         return self._channel
@@ -59,9 +68,10 @@ class RabbitMQManager:
         queue_name: str,
         durable: bool = True,
         auto_delete: bool = False,
+        channel: AbstractRobustChannel | None = None,
     ) -> AbstractRobustQueue:
         """Declare a queue and return it."""
-        channel = await self.get_channel()
+        channel = channel or await self.get_channel()
         queue = await channel.declare_queue(
             queue_name,
             durable=durable,
@@ -75,9 +85,10 @@ class RabbitMQManager:
         queue_name: str,
         message: bytes,
         content_type: str = "application/json",
+        channel: AbstractRobustChannel | None = None,
     ) -> None:
         """Publish a message to a queue."""
-        channel = await self.get_channel()
+        channel = channel or await self.get_channel()
         await channel.default_exchange.publish(
             aio_pika.Message(
                 body=message,
@@ -104,7 +115,7 @@ class RabbitMQManager:
         channel = await self.get_channel()
         await channel.set_qos(prefetch_count=prefetch_count)
 
-        queue = await self.declare_queue(queue_name)
+        queue = await self.declare_queue(queue_name, channel=channel)
 
         async def _consumer_wrapper():
             async with queue.iterator() as queue_iter:
@@ -121,6 +132,28 @@ class RabbitMQManager:
         task = asyncio.create_task(_consumer_wrapper())
         self._consumers[queue_name] = task
         log.info("rabbitmq.consumer.started", queue=queue_name)
+
+    async def enqueue(
+        self,
+        queue_name: str,
+        message: bytes,
+        content_type: str = "application/json",
+        timeout: float | None = None,
+    ) -> None:
+        """Declare the queue then publish, with an optional timeout."""
+        timeout = timeout or self._connect_timeout
+
+        async def _do():
+            channel = await self.get_channel()
+            await self.declare_queue(queue_name, channel=channel)
+            await self.publish(
+                queue_name,
+                message,
+                content_type=content_type,
+                channel=channel,
+            )
+
+        await asyncio.wait_for(_do(), timeout=timeout)
 
     async def stop_consumer(self, queue_name: str) -> None:
         """Stop a specific consumer."""

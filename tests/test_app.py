@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -20,44 +22,28 @@ async def test_health_endpoint_is_public(client_transport):
         assert response.json()["status"] == "ok"
 
 
-class TestSSEManager:
-    """Tests unitaires pour le SSEManager."""
+@pytest.mark.asyncio
+async def test_sse_manager_event_stream_emits_connected_event():
+    manager = SSEManager(heartbeat_interval=0.05)
 
-    @pytest.mark.asyncio
-    async def test_sse_manager_subscribe_yields_connected_event(self):
-        """Test que le subscribe envoie un événement 'connected' immédiatement."""
-        manager = SSEManager(heartbeat_interval=30)
+    stream = manager.event_stream()
+    first_message = await asyncio.wait_for(stream.__anext__(), timeout=0.1)
 
-        # Récupère le premier message du générateur
-        async for message in manager.subscribe():
-            assert "event" in message
-            assert "connected" in message
-            assert "data:" in message
-            break  # Sort après le premier message
+    assert "event: connected" in first_message
+    assert '"event": "connected"' in first_message
+    await stream.aclose()
 
-        # Vérifie qu'un client a été ajouté
-        assert manager.client_count >= 0  # Le client est déconnecté après le break
 
-    @pytest.mark.asyncio
-    async def test_sse_manager_broadcast(self):
-        """Test que le broadcast envoie des messages à tous les clients."""
-        manager = SSEManager(heartbeat_interval=30)
+@pytest.mark.asyncio
+async def test_sse_manager_notify_dispatches_to_stream():
+    manager = SSEManager(heartbeat_interval=0.05)
 
-        # Simule un abonnement
-        messages = []
-        gen = manager.subscribe()
+    stream = manager.event_stream()
+    await stream.__anext__()  # connected
 
-        # Premier message (connected)
-        first_msg = await gen.__anext__()
-        messages.append(first_msg)
+    await manager.notify("test", {"data": "hello"})
+    delivered = await asyncio.wait_for(stream.__anext__(), timeout=0.1)
 
-        # Broadcast un message
-        await manager.broadcast("test", {"data": "hello"})
-
-        # Récupère le message broadcasté
-        second_msg = await gen.__anext__()
-        messages.append(second_msg)
-
-        assert "connected" in messages[0]
-        assert "test" in messages[1]
-        assert "hello" in messages[1]
+    assert '"event": "test"' in delivered
+    assert '"hello"' in delivered
+    await stream.aclose()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import get_current_user, get_sse_manager
@@ -14,17 +14,23 @@ log = get_logger(__name__)
 async def events_stream(
     sse_manager: SSEManager = Depends(get_sse_manager),
     _: AuthenticatedUser = Depends(get_current_user),
+    events: list[str] | None = Query(
+        default=None,
+        description="Optional list of event names to subscribe to",
+        alias="events",
+    ),
 ):
     """
     Server-sent events stream for one-way, real-time updates.
 
     This endpoint provides:
-    - Real-time event broadcasting from RabbitMQ
+    - Real-time internal events broadcast through the SSE manager
+    - Optional filtering by event name via the `events` query parameter
     - Automatic heartbeat to keep connections alive
     - Graceful disconnection handling
     """
     return StreamingResponse(
-        sse_manager.subscribe(),
+        sse_manager.event_stream(events=events),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

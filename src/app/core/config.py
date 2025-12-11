@@ -68,6 +68,7 @@ class RabbitMQSettings(BaseEnvSettings):
     )
 
     dsn: str = "amqp://guest:guest@localhost:5672/"
+    connect_timeout_seconds: float = 5.0
 
 
 class AuthSettings(BaseEnvSettings):
