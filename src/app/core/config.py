@@ -31,7 +31,7 @@ class AppSettings(BaseEnvSettings):
     log_level: str = "INFO"
 
     # CORS settings
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] | str = ["*"]
 
     # SSE / events
     events_ping_interval_seconds: int = 25
