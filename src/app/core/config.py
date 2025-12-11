@@ -1,13 +1,27 @@
 from functools import lru_cache
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
-    """Application configuration loaded from environment variables."""
+class BaseEnvSettings(BaseSettings):
+    """Base settings that reads from .env with UTF-8 encoding."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="APP_"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+class AppSettings(BaseEnvSettings):
+    """Service-level settings (prefix: APP_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="APP_",
     )
 
     version: str = "latest"
@@ -16,13 +30,93 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
 
-    postgres_dsn: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/app"
-    rabbitmq_dsn: str = "amqp://guest:guest@localhost:5672/"
-
     # CORS settings
     cors_origins: list[str] = ["*"]
 
+    # SSE / events
     events_ping_interval_seconds: int = 25
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def split_commas(cls, value):
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+
+class DatabaseSettings(BaseEnvSettings):
+    """Database configuration (prefix: POSTGRES_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="POSTGRES_",
+    )
+
+    dsn: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/app"
+
+
+class RabbitMQSettings(BaseEnvSettings):
+    """RabbitMQ configuration (prefix: RABBITMQ_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="RABBITMQ_",
+    )
+
+    dsn: str = "amqp://guest:guest@localhost:5672/"
+
+
+class AuthSettings(BaseEnvSettings):
+    """Auth toggles (prefix: APP_AUTH_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="AUTH_",
+    )
+
+    disabled: bool = False
+
+
+class KeycloakSettings(BaseEnvSettings):
+    """Keycloak configuration (prefix: KEYCLOAK_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="KEYCLOAK_",
+    )
+
+    server_url: str = "http://localhost:8080"
+    realm: str = "master"
+    client_id: str = "app-qg-api"
+    audience: str | None = None
+    issuer: str | None = f"{server_url.rstrip('/')}/realms/{realm}"
+    jwks_url: str | None = f"{issuer}/protocol/openid-connect/certs"
+    cache_ttl_seconds: int = 300
+    timeout_seconds: float = 3.0
+
+
+class Settings(BaseEnvSettings):
+    """Root application settings grouped by concern."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app: AppSettings = Field(default_factory=AppSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
+    keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
 
 
 @lru_cache

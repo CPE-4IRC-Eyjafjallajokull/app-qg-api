@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from app.api.dependencies import get_sse_manager
+from app.api.dependencies import get_current_user, get_sse_manager
 from app.core.logging import get_logger
+from app.core.security import AuthenticatedUser
 from app.services.events import SSEManager
 
 router = APIRouter()
@@ -12,6 +13,7 @@ log = get_logger(__name__)
 @router.get("/events")
 async def events_stream(
     sse_manager: SSEManager = Depends(get_sse_manager),
+    _: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Server-sent events stream for one-way, real-time updates.

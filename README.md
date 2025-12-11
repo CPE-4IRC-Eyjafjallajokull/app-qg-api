@@ -1,6 +1,6 @@
 # app-qg-api
 
-API FastAPI avec connecteurs async pour MongoDB, PostgreSQL et RabbitMQ, logging JSON via structlog, et flux SSE `/events` pour les notifications temps réel.
+API FastAPI sécurisée avec middleware Keycloak, connecteurs async pour PostgreSQL et RabbitMQ, logging JSON via structlog, et flux SSE `/events` pour les notifications temps réel.
 
 ## Structure du projet
 
@@ -8,7 +8,7 @@ API FastAPI avec connecteurs async pour MongoDB, PostgreSQL et RabbitMQ, logging
 src/app/
 ├── main.py              # Factory FastAPI + lifespan
 ├── core/
-│   ├── config.py        # Settings Pydantic (prefix APP_)
+│   ├── config.py        # Settings Pydantic (prefixes APP_, APP_DB_, APP_AUTH_, APP_KEYCLOAK_)
 │   └── logging.py       # Configuration structlog
 ├── api/
 │   ├── dependencies.py  # Dépendances FastAPI
@@ -57,6 +57,23 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ---
 
+## 🔐 Auth Keycloak
+
+- Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/events`).
+- Configuration minimale :
+
+```env
+APP_KEYCLOAK_SERVER_URL=http://localhost:8080
+APP_KEYCLOAK_REALM=my-realm
+APP_KEYCLOAK_CLIENT_ID=my-api
+```
+
+- Options utiles :
+  - `APP_AUTH_DISABLED=true` uniquement pour du développement local rapide.
+- Les clés publiques sont chargées via JWKS (HTTP ou fichier `file:///...`) et mises en cache (`APP_KEYCLOAK_CACHE_TTL_SECONDS`).
+
+---
+
 ### Avec Docker
 
 #### Build de l'image
@@ -94,10 +111,10 @@ docker run -p 8000:8000 app-qg-api
 
 ```bash
 # Vérifier que l'API fonctionne
-curl http://localhost:8000/health
+curl -H "Authorization: Bearer <token>" http://localhost:8000/health
 
 # Tester le flux SSE
-curl -N http://localhost:8000/events
+curl -N -H "Authorization: Bearer <token>" http://localhost:8000/events
 
 # Lancer les tests
 uv run pytest
@@ -107,17 +124,28 @@ uv run pytest
 
 ## ⚙️ Configuration
 
-Variables d'environnement (fichier `.env` supporté, prefix `APP_`) :
+Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `APP_APP_NAME` | Nom du service | `app-qg-api` |
+| `APP_NAME` | Nom du service | `app-qg-api` |
+| `APP_VERSION` | Version exposée | `latest` |
+| `APP_ENVIRONMENT` | Environnement courant | `local` |
 | `APP_DEBUG` | Mode debug | `false` |
 | `APP_LOG_LEVEL` | Niveau de log | `INFO` |
-| `APP_MONGO_DSN` | URI MongoDB | `mongodb://localhost:27017/app` |
-| `APP_POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://...` |
+| `APP_CORS_ORIGINS` | Origines autorisées (CSV) | `*` |
+| `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `25` |
+| `APP_DB_POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://...` |
 | `APP_RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
-| `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `15` |
+| `APP_AUTH_DISABLED` | Désactiver l'auth (local/tests) | `false` |
+| `APP_KEYCLOAK_SERVER_URL` | URL de Keycloak | `http://localhost:8080` |
+| `APP_KEYCLOAK_REALM` | Nom du realm | `master` |
+| `APP_KEYCLOAK_CLIENT_ID` | Client ID | `app-qg-api` |
+| `APP_KEYCLOAK_AUDIENCE` | Audience attendue (optionnel) | `APP_KEYCLOAK_CLIENT_ID` |
+| `APP_KEYCLOAK_ISSUER` | Issuer attendu (optionnel) | `server_url/realms/realm` |
+| `APP_KEYCLOAK_JWKS_URL` | URL/chemin JWKS (optionnel) | `server_url/realms/realm/protocol/openid-connect/certs` |
+| `APP_KEYCLOAK_CACHE_TTL_SECONDS` | Cache JWKS (s) | `300` |
+| `APP_KEYCLOAK_TIMEOUT_SECONDS` | Timeout HTTP pour Keycloak (s) | `3.0` |
 
 ---
 

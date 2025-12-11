@@ -53,19 +53,29 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           APP_VERSION: ${{ github.ref_name || github.sha }}
+          API_HOST: ${{ vars.API_HOST }}
           APP_NAME: ${{ vars.APP_NAME || 'app-qg-api' }}
           APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
           APP_LOG_LEVEL: ${{ vars.APP_LOG_LEVEL || 'INFO' }}
-          APP_POSTGRES_DSN: ${{ secrets.APP_POSTGRES_DSN }}
-          APP_RABBITMQ_DSN: ${{ secrets.APP_RABBITMQ_DSN }}
-          API_HOST: ${{ vars.API_HOST }}
+          APP_DEBUG: ${{ vars.APP_DEBUG || 'false' }}
+          APP_CORS_ORIGINS: ${{ vars.APP_CORS_ORIGINS || '*' }}
+          APP_EVENTS_PING_INTERVAL_SECONDS: ${{ vars.APP_EVENTS_PING_INTERVAL_SECONDS || '25' }}
+          AUTH_DISABLED: ${{ vars.AUTH_DISABLED || 'false' }}
+          KEYCLOAK_SERVER_URL: ${{ vars.KEYCLOAK_SERVER_URL || 'http://localhost:8080' }}
+          KEYCLOAK_REALM: ${{ vars.KEYCLOAK_REALM || 'master' }}
+          KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID || 'app-qg-api' }}
+          KEYCLOAK_AUDIENCE: ${{ vars.KEYCLOAK_AUDIENCE || vars.KEYCLOAK_CLIENT_ID || 'app-qg-api' }}
+          KEYCLOAK_CACHE_TTL_SECONDS: ${{ vars.KEYCLOAK_CACHE_TTL_SECONDS || '300' }}
+          KEYCLOAK_TIMEOUT_SECONDS: ${{ vars.KEYCLOAK_TIMEOUT_SECONDS || '3.0' }}
+          POSTGRES_DSN: ${{ secrets.POSTGRES_DSN }}
+          RABBITMQ_DSN: ${{ secrets.RABBITMQ_DSN }}
         with:
           host: ${{ secrets.ML_DEPLOY_HOST }}
           username: ${{ secrets.ML_DEPLOY_USER }}
           key: ${{ secrets.ML_DEPLOY_KEY }}
           port: ${{ secrets.ML_DEPLOY_PORT }}
           script_stop: true
-          envs: GITHUB_REF_NAME,APP_VERSION,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_POSTGRES_DSN,APP_RABBITMQ_DSN,API_HOST
+          envs: GITHUB_REF_NAME,API_HOST,APP_VERSION,APP_NAME,APP_ENVIRONMENT,APP_LOG_LEVEL,APP_DEBUG,APP_CORS_ORIGINS,APP_EVENTS_PING_INTERVAL_SECONDS,AUTH_DISABLED,KEYCLOAK_SERVER_URL,KEYCLOAK_REALM,KEYCLOAK_CLIENT_ID,KEYCLOAK_AUDIENCE,KEYCLOAK_CACHE_TTL_SECONDS,KEYCLOAK_TIMEOUT_SECONDS,POSTGRES_DSN,RABBITMQ_DSN
           script: |
             set -euo pipefail
             OWNER='${{ github.repository_owner }}'
@@ -88,7 +98,19 @@ jobs:
             APP_NAME=${APP_NAME:-app-qg-api}
             APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
             APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
+            APP_DEBUG=${APP_DEBUG:-false}
+            APP_CORS_ORIGINS=${APP_CORS_ORIGINS:-*}
+            APP_EVENTS_PING_INTERVAL_SECONDS=${APP_EVENTS_PING_INTERVAL_SECONDS:-25}
             API_HOST=${API_HOST:-api.example.com}
+            AUTH_DISABLED=${AUTH_DISABLED:-false}
+            KEYCLOAK_SERVER_URL=${KEYCLOAK_SERVER_URL:-http://localhost:8080}
+            KEYCLOAK_REALM=${KEYCLOAK_REALM:-master}
+            KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-app-qg-api}
+            KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-$KEYCLOAK_CLIENT_ID}
+            KEYCLOAK_CACHE_TTL_SECONDS=${KEYCLOAK_CACHE_TTL_SECONDS:-300}
+            KEYCLOAK_TIMEOUT_SECONDS=${KEYCLOAK_TIMEOUT_SECONDS:-3.0}
+            POSTGRES_DSN=${POSTGRES_DSN:-}
+            RABBITMQ_DSN=${RABBITMQ_DSN:-}
 
             cd "$INSTALL_DIR"
             
@@ -101,8 +123,19 @@ jobs:
               APP_NAME="$APP_NAME" \
               APP_ENVIRONMENT="$APP_ENVIRONMENT" \
               APP_LOG_LEVEL="$APP_LOG_LEVEL" \
-              APP_POSTGRES_DSN="$APP_POSTGRES_DSN" \
-              APP_RABBITMQ_DSN="$APP_RABBITMQ_DSN" \
+              APP_DEBUG="$APP_DEBUG" \
+              APP_CORS_ORIGINS="$APP_CORS_ORIGINS" \
+              APP_EVENTS_PING_INTERVAL_SECONDS="$APP_EVENTS_PING_INTERVAL_SECONDS" \
+              AUTH_DISABLED="$AUTH_DISABLED" \
+              AUTH_EXEMPT_PATHS="$AUTH_EXEMPT_PATHS" \
+              POSTGRES_DSN="$POSTGRES_DSN" \
+              RABBITMQ_DSN="$RABBITMQ_DSN" \
+              KEYCLOAK_SERVER_URL="$KEYCLOAK_SERVER_URL" \
+              KEYCLOAK_REALM="$KEYCLOAK_REALM" \
+              KEYCLOAK_CLIENT_ID="$KEYCLOAK_CLIENT_ID" \
+              KEYCLOAK_AUDIENCE="$KEYCLOAK_AUDIENCE" \
+              KEYCLOAK_CACHE_TTL_SECONDS="$KEYCLOAK_CACHE_TTL_SECONDS" \
+              KEYCLOAK_TIMEOUT_SECONDS="$KEYCLOAK_TIMEOUT_SECONDS" \
               API_HOST="$API_HOST" \
               docker compose -f compose.prod.yaml up -d --remove-orphans
 

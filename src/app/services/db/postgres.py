@@ -8,14 +8,14 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import Settings
+from app.core.config import DatabaseSettings
 from app.models import Base
 
 
 class PostgresManager:
     """Async SQLAlchemy engine/session factory helper."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: DatabaseSettings):
         self._dsn = settings.postgres_dsn
         self._engine: Optional[AsyncEngine] = None
         self._sessionmaker: Optional[async_sessionmaker[AsyncSession]] = None

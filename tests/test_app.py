@@ -11,11 +11,21 @@ def client_transport():
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint(client_transport):
+async def test_health_requires_auth(client_transport):
     async with AsyncClient(
         transport=client_transport, base_url="http://testserver"
     ) as client:
         response = await client.get("/health")
+        assert response.status_code == 401
+        assert response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint(client_transport, auth_headers):
+    async with AsyncClient(
+        transport=client_transport, base_url="http://testserver"
+    ) as client:
+        response = await client.get("/health", headers=auth_headers)
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 

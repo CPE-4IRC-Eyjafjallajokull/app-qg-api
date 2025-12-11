@@ -9,7 +9,7 @@ from aio_pika.abc import (
     AbstractRobustQueue,
 )
 
-from app.core.config import Settings
+from app.core.config import RabbitMQSettings
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -26,8 +26,8 @@ class RabbitMQManager:
     - Integration with SSE for real-time event broadcasting
     """
 
-    def __init__(self, settings: Settings):
-        self._dsn = settings.rabbitmq_dsn
+    def __init__(self, settings: RabbitMQSettings):
+        self._dsn = settings.dsn
         self._connection: Optional[AbstractRobustConnection] = None
         self._channel: Optional[AbstractRobustChannel] = None
         self._consumers: dict[str, asyncio.Task] = {}
