@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     await app.state.rabbitmq.connect()
     log.info("rabbitmq.connected")
 
-    log.info("startup.complete", env=settings.environment)
+    log.info("startup.complete", env=settings.app.environment)
     try:
         yield
     finally:
