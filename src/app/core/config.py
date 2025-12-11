@@ -97,10 +97,14 @@ class KeycloakSettings(BaseEnvSettings):
     realm: str = "master"
     client_id: str = "app-qg-api"
     audience: str | None = None
-    issuer: str | None = f"{server_url.rstrip('/')}/realms/{realm}"
-    jwks_url: str | None = f"{issuer}/protocol/openid-connect/certs"
     cache_ttl_seconds: int = 300
     timeout_seconds: float = 3.0
+
+    def get_issuer(self) -> str:
+        return f"{self.server_url.rstrip('/')}/realms/{self.realm}"
+
+    def get_jwks_url(self) -> str:
+        return f"{self.get_issuer()}/protocol/openid-connect/certs"
 
 
 class Settings(BaseEnvSettings):

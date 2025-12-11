@@ -33,8 +33,8 @@ class KeycloakConfig:
     def from_settings(cls, settings: "Settings") -> "KeycloakConfig":
         kc = settings.keycloak
 
-        issuer = kc.issuer
-        jwks_url = kc.jwks_url
+        issuer = kc.get_issuer()
+        jwks_url = kc.get_jwks_url()
         client_id = kc.client_id
         # Default audience to client_id when not explicitly provided to keep validation permissive for single-audience clients.
         audience = kc.audience or kc.client_id
