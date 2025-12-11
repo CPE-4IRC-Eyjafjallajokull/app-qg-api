@@ -16,7 +16,7 @@ class PostgresManager:
     """Async SQLAlchemy engine/session factory helper."""
 
     def __init__(self, settings: DatabaseSettings):
-        self._dsn = settings.postgres_dsn
+        self._dsn = settings.dsn
         self._engine: Optional[AsyncEngine] = None
         self._sessionmaker: Optional[async_sessionmaker[AsyncSession]] = None
 
