@@ -8,7 +8,7 @@ API FastAPI sécurisée avec middleware Keycloak, connecteurs async pour Postgre
 src/app/
 ├── main.py              # Factory FastAPI + lifespan
 ├── core/
-│   ├── config.py        # Settings Pydantic (prefixes APP_, APP_DB_, APP_AUTH_, APP_KEYCLOAK_)
+│   ├── config.py        # Settings Pydantic (prefixes APP_, POSTGRES_, RABBITMQ_, AUTH_, KEYCLOAK_)
 │   └── logging.py       # Configuration structlog
 ├── api/
 │   ├── dependencies.py  # Dépendances FastAPI
@@ -63,14 +63,14 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 - Configuration minimale :
 
 ```env
-APP_KEYCLOAK_SERVER_URL=http://localhost:8080
-APP_KEYCLOAK_REALM=my-realm
-APP_KEYCLOAK_CLIENT_ID=my-api
+KEYCLOAK_SERVER_URL=http://localhost:8080
+KEYCLOAK_REALM=my-realm
+KEYCLOAK_CLIENT_ID=my-api
 ```
 
 - Options utiles :
-  - `APP_AUTH_DISABLED=true` uniquement pour du développement local rapide.
-- Les clés publiques sont chargées via JWKS (HTTP ou fichier `file:///...`) et mises en cache (`APP_KEYCLOAK_CACHE_TTL_SECONDS`).
+  - `AUTH_DISABLED=true` uniquement pour du développement local rapide.
+- Les clés publiques sont chargées via JWKS (HTTP ou fichier `file:///...`) et mises en cache (`KEYCLOAK_CACHE_TTL_SECONDS`).
 
 ---
 
@@ -133,19 +133,27 @@ Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 | `APP_ENVIRONMENT` | Environnement courant | `local` |
 | `APP_DEBUG` | Mode debug | `false` |
 | `APP_LOG_LEVEL` | Niveau de log | `INFO` |
+| `APP_LOG_FORMAT` | Format des logs (`json` ou `console`) | `json` |
 | `APP_CORS_ORIGINS` | Origines autorisées (CSV) | `*` |
 | `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `25` |
-| `APP_DB_POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://...` |
-| `APP_RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
-| `APP_AUTH_DISABLED` | Désactiver l'auth (local/tests) | `false` |
-| `APP_KEYCLOAK_SERVER_URL` | URL de Keycloak | `http://localhost:8080` |
-| `APP_KEYCLOAK_REALM` | Nom du realm | `master` |
-| `APP_KEYCLOAK_CLIENT_ID` | Client ID | `app-qg-api` |
-| `APP_KEYCLOAK_AUDIENCE` | Audience attendue (optionnel) | `APP_KEYCLOAK_CLIENT_ID` |
-| `APP_KEYCLOAK_ISSUER` | Issuer attendu (optionnel) | `server_url/realms/realm` |
-| `APP_KEYCLOAK_JWKS_URL` | URL/chemin JWKS (optionnel) | `server_url/realms/realm/protocol/openid-connect/certs` |
-| `APP_KEYCLOAK_CACHE_TTL_SECONDS` | Cache JWKS (s) | `300` |
-| `APP_KEYCLOAK_TIMEOUT_SECONDS` | Timeout HTTP pour Keycloak (s) | `3.0` |
+| `POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://postgres:postgres@localhost:5432/app` |
+| `RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
+| `AUTH_DISABLED` | Désactiver l'auth (local/tests) | `false` |
+| `KEYCLOAK_SERVER_URL` | URL de Keycloak | `http://localhost:8080` |
+| `KEYCLOAK_REALM` | Nom du realm | `master` |
+| `KEYCLOAK_CLIENT_ID` | Client ID | `app-qg-api` |
+| `KEYCLOAK_AUDIENCE` | Audience attendue (optionnel) | `KEYCLOAK_CLIENT_ID` |
+| `KEYCLOAK_CACHE_TTL_SECONDS` | Cache JWKS (s) | `300` |
+| `KEYCLOAK_TIMEOUT_SECONDS` | Timeout HTTP pour Keycloak (s) | `3.0` |
+
+---
+
+## 📬 Messagerie
+
+- Les queues utilisées sont déclarées dans `app/services/messaging/queues.py` (`SUB_QUEUES` pour la consommation, `PUB_QUEUES` pour la publication).
+- L'API consomme toutes les queues listées dans `SUB_QUEUES` et route les messages selon le champ JSON `event`.
+- Les événements connus sont listés dans `app/services/events/events.py`.
+- Le corps attendu pour chaque message est un objet JSON du type `{"event": "<nom>", "payload": {...}}`. Les événements inconnus sont simplement journalisés.
 
 ---
 

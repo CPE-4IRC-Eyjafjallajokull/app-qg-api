@@ -11,6 +11,7 @@ from aio_pika.abc import (
 
 from app.core.config import RabbitMQSettings
 from app.core.logging import get_logger
+from app.services.messaging.queues import Queue
 
 log = get_logger(__name__)
 
@@ -65,7 +66,7 @@ class RabbitMQManager:
 
     async def declare_queue(
         self,
-        queue_name: str,
+        queue_name: Queue,
         durable: bool = True,
         auto_delete: bool = False,
         channel: AbstractRobustChannel | None = None,
@@ -73,16 +74,16 @@ class RabbitMQManager:
         """Declare a queue and return it."""
         channel = channel or await self.get_channel()
         queue = await channel.declare_queue(
-            queue_name,
+            queue_name.queue,
             durable=durable,
             auto_delete=auto_delete,
         )
-        log.info("rabbitmq.queue.declared", queue=queue_name)
+        log.info("rabbitmq.queue.declared", queue=queue_name.queue)
         return queue
 
     async def publish(
         self,
-        queue_name: str,
+        queue_name: Queue,
         message: bytes,
         content_type: str = "application/json",
         channel: AbstractRobustChannel | None = None,
@@ -94,13 +95,13 @@ class RabbitMQManager:
                 body=message,
                 content_type=content_type,
             ),
-            routing_key=queue_name,
+            routing_key=queue_name.queue,
         )
-        log.debug("rabbitmq.message.published", queue=queue_name)
+        log.debug("rabbitmq.message.published", queue=queue_name.queue)
 
     async def consume(
         self,
-        queue_name: str,
+        queue_name: Queue,
         callback: Callable[[AbstractIncomingMessage], Coroutine[Any, Any, None]],
         prefetch_count: int = 10,
     ) -> None:
@@ -135,7 +136,7 @@ class RabbitMQManager:
 
     async def enqueue(
         self,
-        queue_name: str,
+        queue_name: Queue,
         message: bytes,
         content_type: str = "application/json",
         timeout: float | None = None,
@@ -155,7 +156,7 @@ class RabbitMQManager:
 
         await asyncio.wait_for(_do(), timeout=timeout)
 
-    async def stop_consumer(self, queue_name: str) -> None:
+    async def stop_consumer(self, queue_name: Queue) -> None:
         """Stop a specific consumer."""
         if queue_name in self._consumers:
             self._consumers[queue_name].cancel()

@@ -145,6 +145,7 @@ class SSEManager:
             kind=kind,
         )
 
+        # Mutex on subscriber list because its a shared resource
         async with self._lock:
             self._subscribers.append(subscriber)
 
@@ -169,7 +170,7 @@ class SSEManager:
             except asyncio.QueueFull:
                 log.warning(
                     "sse.queue.full",
-                    event=event_name,
+                    event_name=event_name,
                     kind=subscriber.kind,
                 )
 
@@ -185,4 +186,4 @@ class SSEManager:
     def _format_sse(message: EventPayload) -> str:
         """Format data as an SSE message (standard event + data lines)."""
         event_name = message.get("event", "message")
-        return f"event: {event_name}\ndata: {json.dumps(message)}\n\n"
+        return f"event: {event_name}\ndata: {json.dumps(message, default=str)}\n\n"

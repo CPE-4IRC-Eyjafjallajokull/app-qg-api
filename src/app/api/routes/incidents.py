@@ -10,8 +10,8 @@ from app.api.dependencies import (
     get_sse_manager,
 )
 from app.core.security import AuthenticatedUser
-from app.services.events import SSEManager
-from app.services.events.constants import INCIDENT_DECLARED_EVENT, NEW_INCIDENT_QUEUE
+from app.services.events import Event, SSEManager
+from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -24,28 +24,26 @@ async def new_incident(
     user: AuthenticatedUser = Depends(get_current_user),
     sse_manager: SSEManager = Depends(get_sse_manager),
 ) -> dict[str, str]:
-    message = json.dumps(
-        {
+    envelope = {
+        "event": Event.NEW_INCIDENT.value,
+        "payload": {
             "incident": payload,
             "submitted_by": user.username or user.subject,
-        }
-    ).encode()
+            "status": "enqueued",
+        },
+    }
+    # Preserve legacy top-level fields for downstream consumers that do not use `event`.
+    envelope.update(envelope["payload"])
+    message = json.dumps(envelope).encode()
 
     try:
-        await rabbitmq.enqueue(NEW_INCIDENT_QUEUE, message, timeout=5.0)
+        await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Message broker unavailable",
         ) from None
 
-    await sse_manager.notify(
-        INCIDENT_DECLARED_EVENT,
-        {
-            "incident": payload,
-            "submitted_by": user.username or user.subject,
-            "status": "enqueued",
-        },
-    )
+    await sse_manager.notify(Event.NEW_INCIDENT.value, envelope["payload"])
 
     return {"message": "New incident created and enqueued"}

@@ -11,8 +11,9 @@ from app.core.security import KeycloakAuthenticator, KeycloakConfig
 from app.services.db.postgres import PostgresManager
 from app.services.events import SSEManager
 from app.services.messaging.rabbitmq import RabbitMQManager
+from app.services.messaging.subscriptions import ApplicationSubscriptions
 
-configure_logging(settings.app.log_level)
+configure_logging()
 log = get_logger(__name__).bind(app=settings.app.name)
 
 authenticator = KeycloakAuthenticator(KeycloakConfig.from_settings(settings))
@@ -27,18 +28,24 @@ async def lifespan(app: FastAPI):
     app.state.sse = SSEManager(
         heartbeat_interval=settings.app.events_ping_interval_seconds
     )
+    app.state.subscriptions = ApplicationSubscriptions(
+        app.state.rabbitmq, app.state.sse
+    )
 
     # Ensure connections are established at startup
     await app.state.postgres.connect()
     log.info("postgres.connected")
     await app.state.rabbitmq.connect()
     log.info("rabbitmq.connected")
+    await app.state.subscriptions.start()
+    log.info("rabbitmq.subscriptions.ready")
 
     log.info("startup.complete", env=settings.app.environment)
     try:
         yield
     finally:
         # Graceful shutdown
+        await app.state.subscriptions.stop()
         await app.state.sse.disconnect_all()
         await app.state.rabbitmq.close()
         await app.state.postgres.close()

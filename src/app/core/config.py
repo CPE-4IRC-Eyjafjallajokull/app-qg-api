@@ -29,6 +29,7 @@ class AppSettings(BaseEnvSettings):
     debug: bool = False
     environment: str = "local"
     log_level: str = "INFO"
+    log_format: str = "json"
 
     # CORS settings
     cors_origins: list[str] | str = ["*"]
@@ -42,6 +43,15 @@ class AppSettings(BaseEnvSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @field_validator("log_format")
+    @classmethod
+    def validate_log_format(cls, value: str) -> str:
+        normalized = value.lower()
+        if normalized not in {"json", "console"}:
+            msg = "log_format must be either 'json' or 'console'"
+            raise ValueError(msg)
+        return normalized
 
 
 class DatabaseSettings(BaseEnvSettings):
