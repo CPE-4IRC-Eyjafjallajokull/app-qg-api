@@ -2,7 +2,7 @@ services:
   api:
     image: ghcr.io/${OWNER:-cpe-4irc-eyjafjallajokull}/app-qg-api:${IMAGE_TAG:-latest}
     container_name: app-qg-api
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     environment:
       - APP_VERSION=${APP_VERSION:-latest}
       - APP_NAME=${APP_NAME:-app-qg-api}

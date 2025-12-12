@@ -16,7 +16,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: app-qg-api
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     ports:
       - "8000:8000"
     environment:
