@@ -7,8 +7,8 @@ from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
 class VehicleTypeConsumableSpecBase:
     vehicle_type_id: UUID
     consumable_type_id: UUID
-    capacity_qty: Decimal | None = None
-    initial_qty: Decimal | None = None
+    capacity_quantity: Decimal | None = None
+    initial_quantity: Decimal | None = None
     is_applicable: bool | None = None
 
 
@@ -17,8 +17,8 @@ class VehicleTypeConsumableSpecCreate(VehicleTypeConsumableSpecBase, CreateSchem
 
 
 class VehicleTypeConsumableSpecUpdate(UpdateSchema):
-    capacity_qty: Decimal | None = None
-    initial_qty: Decimal | None = None
+    capacity_quantity: Decimal | None = None
+    initial_quantity: Decimal | None = None
     is_applicable: bool | None = None
 
 

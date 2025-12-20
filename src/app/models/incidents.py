@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from geoalchemy2 import Geography
 from sqlalchemy import (
+    DOUBLE_PRECISION,
     Boolean,
     DateTime,
     Enum,
@@ -48,9 +48,8 @@ class Incident(Base, TimestampMixin):
     address: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     zipcode: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     city: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
-    location: Mapped[Optional[str]] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=True
-    )
+    latitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ended_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -296,8 +295,8 @@ class PhaseTypeVehicleRequirement(Base, CreatedAtMixin):
         ForeignKey("vehicle_types.vehicle_type_id", ondelete="CASCADE"),
         primary_key=True,
     )
-    min_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    max_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    min_quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     mandatory: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     preference_rank: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
 

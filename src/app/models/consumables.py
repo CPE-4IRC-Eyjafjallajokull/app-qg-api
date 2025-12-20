@@ -54,8 +54,8 @@ class VehicleTypeConsumableSpec(Base):
         ),
         primary_key=True,
     )
-    capacity_qty: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
-    initial_qty: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    capacity_quantity: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    initial_quantity: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     is_applicable: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     vehicle_type: Mapped["VehicleType"] = relationship(
@@ -85,7 +85,7 @@ class VehicleConsumableStock(Base):
         ),
         primary_key=True,
     )
-    current_qty: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    current_quantity: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     last_update: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

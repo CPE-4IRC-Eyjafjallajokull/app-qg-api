@@ -8,7 +8,7 @@ from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
 class VehicleConsumableStockBase:
     vehicle_id: UUID
     consumable_type_id: UUID
-    current_qty: Decimal | None = None
+    current_quantity: Decimal | None = None
 
 
 class VehicleConsumableStockCreate(VehicleConsumableStockBase, CreateSchema):
@@ -16,7 +16,7 @@ class VehicleConsumableStockCreate(VehicleConsumableStockBase, CreateSchema):
 
 
 class VehicleConsumableStockUpdate(UpdateSchema):
-    current_qty: Decimal | None = None
+    current_quantity: Decimal | None = None
 
 
 class VehicleConsumableStockRead(VehicleConsumableStockBase, ReadSchema):

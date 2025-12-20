@@ -6,7 +6,8 @@ from app.schemas.base import CreateSchema, ReadSchema
 
 class VehiclePositionLogBase:
     vehicle_id: UUID
-    position: str | None = None
+    latitude: float
+    longitude: float
     timestamp: datetime | None = None
 
 

@@ -12,9 +12,7 @@ from app.schemas.vehicles import VehicleCreate, VehicleRead, VehicleUpdate
 router = APIRouter()
 
 
-@router.post(
-    "/vehicles", response_model=VehicleRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=VehicleRead, status_code=status.HTTP_201_CREATED)
 async def create_vehicle(
     payload: VehicleCreate, session: AsyncSession = Depends(get_postgres_session)
 ) -> Vehicle:
@@ -25,7 +23,7 @@ async def create_vehicle(
     return vehicle
 
 
-@router.get("/vehicles", response_model=list[VehicleRead])
+@router.get("/", response_model=list[VehicleRead])
 async def list_vehicles(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -43,7 +41,7 @@ async def list_vehicles(
     return result.scalars().all()
 
 
-@router.get("/vehicles/{vehicle_id}", response_model=VehicleRead)
+@router.get("/{vehicle_id}", response_model=VehicleRead)
 async def get_vehicle(
     vehicle_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> Vehicle:
@@ -54,7 +52,7 @@ async def get_vehicle(
     )
 
 
-@router.patch("/vehicles/{vehicle_id}", response_model=VehicleRead)
+@router.patch("/{vehicle_id}", response_model=VehicleRead)
 async def update_vehicle(
     vehicle_id: UUID,
     payload: VehicleUpdate,
@@ -73,7 +71,7 @@ async def update_vehicle(
 
 
 @router.delete(
-    "/vehicles/{vehicle_id}",
+    "/{vehicle_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

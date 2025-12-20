@@ -4,8 +4,16 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from geoalchemy2 import Geography
-from sqlalchemy import DateTime, ForeignKey, Index, SmallInteger, String, func, text
+from sqlalchemy import (
+    DOUBLE_PRECISION,
+    DateTime,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -218,9 +226,8 @@ class VehiclePositionLog(Base):
         ForeignKey("vehicles.vehicle_id", ondelete="CASCADE"),
         nullable=False,
     )
-    position: Mapped[Optional[str]] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=True
-    )
+    latitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

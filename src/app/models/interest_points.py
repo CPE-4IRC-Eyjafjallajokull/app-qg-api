@@ -4,8 +4,15 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from geoalchemy2 import Geography
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import (
+    DOUBLE_PRECISION,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,9 +33,8 @@ class InterestPoint(Base):
     address: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     zipcode: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     city: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    location: Mapped[Optional[str]] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=True
-    )
+    latitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(DOUBLE_PRECISION, nullable=True)
     interest_point_kind_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("interest_point_kinds.interest_point_kind_id", ondelete="SET NULL"),
@@ -102,7 +108,7 @@ class InterestPointConsumable(Base):
         ),
         primary_key=True,
     )
-    current_qty: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    current_quantity: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     last_update: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/vehicle-assignments",
+    "/assignments",
     response_model=VehicleAssignmentRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -32,7 +32,7 @@ async def create_vehicle_assignment(
     return assignment
 
 
-@router.get("/vehicle-assignments", response_model=list[VehicleAssignmentRead])
+@router.get("/assignments", response_model=list[VehicleAssignmentRead])
 async def list_vehicle_assignments(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -58,7 +58,7 @@ async def list_vehicle_assignments(
 
 
 @router.get(
-    "/vehicle-assignments/{vehicle_assignment_id}",
+    "/assignments/{vehicle_assignment_id}",
     response_model=VehicleAssignmentRead,
 )
 async def get_vehicle_assignment(
@@ -74,7 +74,7 @@ async def get_vehicle_assignment(
 
 
 @router.patch(
-    "/vehicle-assignments/{vehicle_assignment_id}",
+    "/assignments/{vehicle_assignment_id}",
     response_model=VehicleAssignmentRead,
 )
 async def update_vehicle_assignment(
@@ -97,7 +97,7 @@ async def update_vehicle_assignment(
 
 
 @router.delete(
-    "/vehicle-assignments/{vehicle_assignment_id}",
+    "/assignments/{vehicle_assignment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

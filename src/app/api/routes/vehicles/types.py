@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/vehicle-types",
+    "/types",
     response_model=VehicleTypeRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -27,7 +27,7 @@ async def create_vehicle_type(
     return vehicle_type
 
 
-@router.get("/vehicle-types", response_model=list[VehicleTypeRead])
+@router.get("/types", response_model=list[VehicleTypeRead])
 async def list_vehicle_types(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -38,7 +38,7 @@ async def list_vehicle_types(
     return result.scalars().all()
 
 
-@router.get("/vehicle-types/{vehicle_type_id}", response_model=VehicleTypeRead)
+@router.get("/types/{vehicle_type_id}", response_model=VehicleTypeRead)
 async def get_vehicle_type(
     vehicle_type_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> VehicleType:
@@ -49,7 +49,7 @@ async def get_vehicle_type(
     )
 
 
-@router.patch("/vehicle-types/{vehicle_type_id}", response_model=VehicleTypeRead)
+@router.patch("/types/{vehicle_type_id}", response_model=VehicleTypeRead)
 async def update_vehicle_type(
     vehicle_type_id: UUID,
     payload: VehicleTypeUpdate,
@@ -68,7 +68,7 @@ async def update_vehicle_type(
 
 
 @router.delete(
-    "/vehicle-types/{vehicle_type_id}",
+    "/types/{vehicle_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

@@ -4,8 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from geoalchemy2 import Geography
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DOUBLE_PRECISION, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -123,11 +122,17 @@ class CasualtyTransport(Base):
     dropped_off_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    picked_up_location: Mapped[Optional[str]] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=True
+    picked_up_latitude: Mapped[Optional[float]] = mapped_column(
+        DOUBLE_PRECISION, nullable=True
     )
-    dropped_off_location: Mapped[Optional[str]] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=True
+    picked_up_longitude: Mapped[Optional[float]] = mapped_column(
+        DOUBLE_PRECISION, nullable=True
+    )
+    dropped_off_latitude: Mapped[Optional[float]] = mapped_column(
+        DOUBLE_PRECISION, nullable=True
+    )
+    dropped_off_longitude: Mapped[Optional[float]] = mapped_column(
+        DOUBLE_PRECISION, nullable=True
     )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
