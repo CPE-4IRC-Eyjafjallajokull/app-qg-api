@@ -22,4 +22,4 @@ class InterestPointConsumableUpdate(UpdateSchema):
 
 
 class InterestPointConsumableRead(InterestPointConsumableBase, ReadSchema):
-    last_update: datetime
+    pass

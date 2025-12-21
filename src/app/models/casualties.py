@@ -85,9 +85,6 @@ class CasualtyStatus(Base):
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     label: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    reported_in_care_transporting_delivered_deceased: Mapped[Optional[str]] = (
-        mapped_column(String, nullable=True)
-    )
 
     casualties: Mapped[list[Casualty]] = relationship(
         "Casualty",

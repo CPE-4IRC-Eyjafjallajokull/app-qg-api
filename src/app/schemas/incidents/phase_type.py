@@ -7,7 +7,7 @@ class PhaseTypeBase:
     phase_category_id: UUID
     code: str
     label: str | None = None
-    default_criticality: int
+    default_criticity: int
 
 
 class PhaseTypeCreate(PhaseTypeBase, CreateSchema):
@@ -18,7 +18,7 @@ class PhaseTypeUpdate(UpdateSchema):
     phase_category_id: UUID | None = None
     code: str | None = None
     label: str | None = None
-    default_criticality: int | None = None
+    default_criticity: int | None = None
 
 
 class PhaseTypeRead(PhaseTypeBase, ReadSchema):

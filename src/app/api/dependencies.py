@@ -5,14 +5,11 @@ from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
 from app.core.security.keycloak import KeycloakAuthenticator
 from app.services.db.postgres import PostgresManager
 from app.services.events import SSEManager
 from app.services.messaging.rabbitmq import RabbitMQManager
-
-log = get_logger(__name__)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -47,8 +44,6 @@ async def get_current_user(
     authenticator: KeycloakAuthenticator = Depends(get_authenticator),
 ) -> AuthenticatedUser:
     """Validate the bearer token and return the authenticated user."""
-    log.debug("Authenticating user from bearer token", credentials=credentials)
-
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -106,7 +106,7 @@ class PhaseType(Base):
     )
     code: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     label: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    default_criticality: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    default_criticity: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     category: Mapped[PhaseCategory] = relationship(
         "PhaseCategory", back_populates="phase_types"
@@ -198,17 +198,16 @@ class IncidentPhaseDependency(Base, CreatedAtMixin):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
     incident_phase_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("incident_phases.incident_phase_id", ondelete="CASCADE"),
+        primary_key=True,
         nullable=False,
     )
     depends_on_incident_phase_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("incident_phases.incident_phase_id", ondelete="CASCADE"),
+        primary_key=True,
         nullable=False,
     )
     kind: Mapped[IncidentPhaseDependencyKind] = mapped_column(

@@ -17,4 +17,3 @@ class VehiclePositionLogCreate(VehiclePositionLogBase, CreateSchema):
 
 class VehiclePositionLogRead(VehiclePositionLogBase, ReadSchema):
     vehicle_position_id: UUID
-    timestamp: datetime
