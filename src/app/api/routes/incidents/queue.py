@@ -14,7 +14,7 @@ from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
 
-router = APIRouter(prefix="/incidents", tags=["incidents"])
+router = APIRouter()
 
 
 @router.post("/new")
