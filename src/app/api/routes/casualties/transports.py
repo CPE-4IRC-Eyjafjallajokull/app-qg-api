@@ -17,7 +17,7 @@ router = APIRouter(prefix="/transports")
 
 
 @router.post(
-    "/",
+    "",
     response_model=CasualtyTransportRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -32,7 +32,7 @@ async def create_casualty_transport(
     return transport
 
 
-@router.get("/", response_model=list[CasualtyTransportRead])
+@router.get("", response_model=list[CasualtyTransportRead])
 async def list_casualty_transports(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

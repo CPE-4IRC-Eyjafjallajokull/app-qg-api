@@ -8,11 +8,11 @@ from app.api.dependencies import get_postgres_session
 from app.models import VehiclePositionLog
 from app.schemas.vehicles import VehiclePositionLogCreate, VehiclePositionLogRead
 
-router = APIRouter()
+router = APIRouter(prefix="/position-logs")
 
 
 @router.post(
-    "/position-logs",
+    "",
     response_model=VehiclePositionLogRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -27,7 +27,7 @@ async def create_vehicle_position_log(
     return log
 
 
-@router.get("/position-logs", response_model=list[VehiclePositionLogRead])
+@router.get("", response_model=list[VehiclePositionLogRead])
 async def list_vehicle_position_logs(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

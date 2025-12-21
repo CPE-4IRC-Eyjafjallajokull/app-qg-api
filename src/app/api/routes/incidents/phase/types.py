@@ -9,10 +9,10 @@ from app.api.routes.utils import fetch_one_or_404
 from app.models import PhaseType
 from app.schemas.incidents import PhaseTypeCreate, PhaseTypeRead, PhaseTypeUpdate
 
-router = APIRouter(prefix="/phase-types")
+router = APIRouter(prefix="/types")
 
 
-@router.post("/", response_model=PhaseTypeRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PhaseTypeRead, status_code=status.HTTP_201_CREATED)
 async def create_phase_type(
     payload: PhaseTypeCreate, session: AsyncSession = Depends(get_postgres_session)
 ) -> PhaseType:
@@ -23,7 +23,7 @@ async def create_phase_type(
     return phase_type
 
 
-@router.get("/", response_model=list[PhaseTypeRead])
+@router.get("", response_model=list[PhaseTypeRead])
 async def list_phase_types(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

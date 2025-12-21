@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_postgres_session
-from app.api.routes.utils import fetch_one_or_404
+from app.api.routes.vehicles.utils import fetch_one_or_404
 from app.models import Vehicle
 from app.schemas.vehicles import VehicleCreate, VehicleRead, VehicleUpdate
 

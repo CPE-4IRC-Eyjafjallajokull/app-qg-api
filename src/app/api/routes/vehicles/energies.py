@@ -9,12 +9,10 @@ from app.api.routes.utils import fetch_one_or_404
 from app.models import Energy
 from app.schemas.vehicles import EnergyCreate, EnergyRead, EnergyUpdate
 
-router = APIRouter()
+router = APIRouter(prefix="/energies")
 
 
-@router.post(
-    "/energies", response_model=EnergyRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=EnergyRead, status_code=status.HTTP_201_CREATED)
 async def create_energy(
     payload: EnergyCreate, session: AsyncSession = Depends(get_postgres_session)
 ) -> Energy:
@@ -25,7 +23,7 @@ async def create_energy(
     return energy
 
 
-@router.get("/energies", response_model=list[EnergyRead])
+@router.get("", response_model=list[EnergyRead])
 async def list_energies(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -36,7 +34,7 @@ async def list_energies(
     return result.scalars().all()
 
 
-@router.get("/energies/{energy_id}", response_model=EnergyRead)
+@router.get("/{energy_id}", response_model=EnergyRead)
 async def get_energy(
     energy_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> Energy:
@@ -45,7 +43,7 @@ async def get_energy(
     )
 
 
-@router.patch("/energies/{energy_id}", response_model=EnergyRead)
+@router.patch("/{energy_id}", response_model=EnergyRead)
 async def update_energy(
     energy_id: UUID,
     payload: EnergyUpdate,
@@ -62,7 +60,7 @@ async def update_energy(
 
 
 @router.delete(
-    "/energies/{energy_id}",
+    "/{energy_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

@@ -16,9 +16,7 @@ from app.schemas.casualties import (
 router = APIRouter(prefix="/statuses")
 
 
-@router.post(
-    "/", response_model=CasualtyStatusRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=CasualtyStatusRead, status_code=status.HTTP_201_CREATED)
 async def create_casualty_status(
     payload: CasualtyStatusCreate, session: AsyncSession = Depends(get_postgres_session)
 ) -> CasualtyStatus:
@@ -29,7 +27,7 @@ async def create_casualty_status(
     return casualty_status
 
 
-@router.get("/", response_model=list[CasualtyStatusRead])
+@router.get("", response_model=list[CasualtyStatusRead])
 async def list_casualty_statuses(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

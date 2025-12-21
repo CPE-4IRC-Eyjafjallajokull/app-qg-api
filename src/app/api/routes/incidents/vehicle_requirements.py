@@ -17,7 +17,7 @@ router = APIRouter(prefix="/vehicle-requirements")
 
 
 @router.post(
-    "/",
+    "",
     response_model=PhaseTypeVehicleRequirementRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -32,7 +32,7 @@ async def create_vehicle_requirement(
     return requirement
 
 
-@router.get("/", response_model=list[PhaseTypeVehicleRequirementRead])
+@router.get("", response_model=list[PhaseTypeVehicleRequirementRead])
 async def list_vehicle_requirements(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

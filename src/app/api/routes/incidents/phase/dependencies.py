@@ -14,11 +14,11 @@ from app.schemas.incidents import (
     IncidentPhaseDependencyUpdate,
 )
 
-router = APIRouter(prefix="/phase-dependencies")
+router = APIRouter(prefix="/dependencies")
 
 
 @router.post(
-    "/",
+    "",
     response_model=IncidentPhaseDependencyRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -33,7 +33,7 @@ async def create_incident_phase_dependency(
     return dependency
 
 
-@router.get("/", response_model=list[IncidentPhaseDependencyRead])
+@router.get("", response_model=list[IncidentPhaseDependencyRead])
 async def list_incident_phase_dependencies(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

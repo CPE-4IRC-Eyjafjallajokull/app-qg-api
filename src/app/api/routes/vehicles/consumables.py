@@ -23,11 +23,13 @@ from app.schemas.vehicles import (
     VehicleTypeConsumableSpecUpdate,
 )
 
-router = APIRouter(prefix="/consumables")
+types_router = APIRouter(prefix="/consumables/types")
+stock_router = APIRouter(prefix="/consumables/stock")
+specs_router = APIRouter(prefix="/consumables/specs")
 
 
-@router.post(
-    "/types",
+@types_router.post(
+    "",
     response_model=VehicleConsumableTypeRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -42,8 +44,8 @@ async def create_vehicle_consumable_type(
     return consumable_type
 
 
-@router.get(
-    "/types",
+@types_router.get(
+    "",
     response_model=list[VehicleConsumableTypeRead],
 )
 async def list_vehicle_consumable_types(
@@ -61,8 +63,8 @@ async def list_vehicle_consumable_types(
     return result.scalars().all()
 
 
-@router.get(
-    "/types/{consumable_type_id}",
+@types_router.get(
+    "/{consumable_type_id}",
     response_model=VehicleConsumableTypeRead,
 )
 async def get_vehicle_consumable_type(
@@ -77,8 +79,8 @@ async def get_vehicle_consumable_type(
     )
 
 
-@router.patch(
-    "/types/{consumable_type_id}",
+@types_router.patch(
+    "/{consumable_type_id}",
     response_model=VehicleConsumableTypeRead,
 )
 async def update_vehicle_consumable_type(
@@ -100,8 +102,8 @@ async def update_vehicle_consumable_type(
     return consumable_type
 
 
-@router.delete(
-    "/types/{consumable_type_id}",
+@types_router.delete(
+    "/{consumable_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )
@@ -119,8 +121,8 @@ async def delete_vehicle_consumable_type(
     await session.commit()
 
 
-@router.post(
-    "/stock",
+@stock_router.post(
+    "",
     response_model=VehicleConsumableStockRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -135,8 +137,8 @@ async def create_vehicle_consumable_stock(
     return stock
 
 
-@router.get(
-    "/stock",
+@stock_router.get(
+    "",
     response_model=list[VehicleConsumableStockRead],
 )
 async def list_vehicle_consumable_stock(
@@ -158,8 +160,8 @@ async def list_vehicle_consumable_stock(
     return result.scalars().all()
 
 
-@router.get(
-    "/stock/{vehicle_id}/{consumable_type_id}",
+@stock_router.get(
+    "/{vehicle_id}/{consumable_type_id}",
     response_model=VehicleConsumableStockRead,
 )
 async def get_vehicle_consumable_stock(
@@ -177,8 +179,8 @@ async def get_vehicle_consumable_stock(
     )
 
 
-@router.patch(
-    "/stock/{vehicle_id}/{consumable_type_id}",
+@stock_router.patch(
+    "/{vehicle_id}/{consumable_type_id}",
     response_model=VehicleConsumableStockRead,
 )
 async def update_vehicle_consumable_stock(
@@ -202,8 +204,8 @@ async def update_vehicle_consumable_stock(
     return stock
 
 
-@router.delete(
-    "/stock/{vehicle_id}/{consumable_type_id}",
+@stock_router.delete(
+    "/{vehicle_id}/{consumable_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )
@@ -224,8 +226,8 @@ async def delete_vehicle_consumable_stock(
     await session.commit()
 
 
-@router.post(
-    "/specs",
+@specs_router.post(
+    "",
     response_model=VehicleTypeConsumableSpecRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -240,8 +242,8 @@ async def create_vehicle_type_consumable_spec(
     return spec
 
 
-@router.get(
-    "/specs",
+@specs_router.get(
+    "",
     response_model=list[VehicleTypeConsumableSpecRead],
 )
 async def list_vehicle_type_consumable_specs(
@@ -263,8 +265,8 @@ async def list_vehicle_type_consumable_specs(
     return result.scalars().all()
 
 
-@router.get(
-    "/specs/{vehicle_type_id}/{consumable_type_id}",
+@specs_router.get(
+    "/{vehicle_type_id}/{consumable_type_id}",
     response_model=VehicleTypeConsumableSpecRead,
 )
 async def get_vehicle_type_consumable_spec(
@@ -282,8 +284,8 @@ async def get_vehicle_type_consumable_spec(
     )
 
 
-@router.patch(
-    "/specs/{vehicle_type_id}/{consumable_type_id}",
+@specs_router.patch(
+    "/{vehicle_type_id}/{consumable_type_id}",
     response_model=VehicleTypeConsumableSpecRead,
 )
 async def update_vehicle_type_consumable_spec(
@@ -307,8 +309,8 @@ async def update_vehicle_type_consumable_spec(
     return spec
 
 
-@router.delete(
-    "/specs/{vehicle_type_id}/{consumable_type_id}",
+@specs_router.delete(
+    "/{vehicle_type_id}/{consumable_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

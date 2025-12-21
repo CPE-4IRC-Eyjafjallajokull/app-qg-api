@@ -14,25 +14,15 @@ router = APIRouter()
 
 router.include_router(health_router)
 router.include_router(events_router)
-router.include_router(
-    incidents_router, prefix="/incidents", dependencies=[Depends(get_current_user)]
-)
+router.include_router(incidents_router, dependencies=[Depends(get_current_user)])
 router.include_router(
     interventions_router,
-    prefix="/interventions",
     dependencies=[Depends(get_current_user)],
 )
-router.include_router(
-    operators_router, prefix="/operators", dependencies=[Depends(get_current_user)]
-)
-router.include_router(
-    casualties_router, prefix="/casualties", dependencies=[Depends(get_current_user)]
-)
+router.include_router(operators_router, dependencies=[Depends(get_current_user)])
+router.include_router(casualties_router, dependencies=[Depends(get_current_user)])
 router.include_router(
     interest_points_router,
-    prefix="/interest-points",
     dependencies=[Depends(get_current_user)],
 )
-router.include_router(
-    vehicles_router, prefix="/vehicles", dependencies=[Depends(get_current_user)]
-)
+router.include_router(vehicles_router, dependencies=[Depends(get_current_user)])

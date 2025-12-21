@@ -13,11 +13,11 @@ from app.schemas.interest_points import (
     InterestPointKindUpdate,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/kinds")
 
 
 @router.post(
-    "/kinds", response_model=InterestPointKindRead, status_code=status.HTTP_201_CREATED
+    "", response_model=InterestPointKindRead, status_code=status.HTTP_201_CREATED
 )
 async def create_interest_point_kind(
     payload: InterestPointKindCreate,
@@ -30,7 +30,7 @@ async def create_interest_point_kind(
     return kind
 
 
-@router.get("/kinds", response_model=list[InterestPointKindRead])
+@router.get("", response_model=list[InterestPointKindRead])
 async def list_interest_point_kinds(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -42,7 +42,7 @@ async def list_interest_point_kinds(
     return result.scalars().all()
 
 
-@router.get("/kinds/{interest_point_kind_id}", response_model=InterestPointKindRead)
+@router.get("/{interest_point_kind_id}", response_model=InterestPointKindRead)
 async def get_interest_point_kind(
     interest_point_kind_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> InterestPointKind:
@@ -55,7 +55,7 @@ async def get_interest_point_kind(
     )
 
 
-@router.patch("/kinds/{interest_point_kind_id}", response_model=InterestPointKindRead)
+@router.patch("/{interest_point_kind_id}", response_model=InterestPointKindRead)
 async def update_interest_point_kind(
     interest_point_kind_id: UUID,
     payload: InterestPointKindUpdate,
@@ -76,7 +76,7 @@ async def update_interest_point_kind(
 
 
 @router.delete(
-    "/kinds/{interest_point_kind_id}",
+    "/{interest_point_kind_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )

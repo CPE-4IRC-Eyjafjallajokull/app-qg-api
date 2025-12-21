@@ -14,7 +14,7 @@ from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
 
-router = APIRouter()
+router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
 @router.post("/new")
@@ -32,7 +32,8 @@ async def new_incident(
             "status": "enqueued",
         },
     }
-
+    # Preserve legacy top-level fields for downstream consumers that do not use `event`.
+    envelope.update(envelope["payload"])
     message = json.dumps(envelope).encode()
 
     try:

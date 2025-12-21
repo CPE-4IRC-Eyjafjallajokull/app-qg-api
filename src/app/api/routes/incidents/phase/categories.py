@@ -13,11 +13,11 @@ from app.schemas.incidents import (
     PhaseCategoryUpdate,
 )
 
-router = APIRouter(prefix="/phase-categories")
+router = APIRouter(prefix="/categories")
 
 
 @router.post(
-    "/",
+    "",
     response_model=PhaseCategoryRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -32,7 +32,7 @@ async def create_phase_category(
     return category
 
 
-@router.get("/", response_model=list[PhaseCategoryRead])
+@router.get("", response_model=list[PhaseCategoryRead])
 async def list_phase_categories(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

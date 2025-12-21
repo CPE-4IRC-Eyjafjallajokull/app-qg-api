@@ -16,7 +16,7 @@ from app.schemas.casualties import (
 router = APIRouter(prefix="/types")
 
 
-@router.post("/", response_model=CasualtyTypeRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CasualtyTypeRead, status_code=status.HTTP_201_CREATED)
 async def create_casualty_type(
     payload: CasualtyTypeCreate, session: AsyncSession = Depends(get_postgres_session)
 ) -> CasualtyType:
@@ -27,7 +27,7 @@ async def create_casualty_type(
     return casualty_type
 
 
-@router.get("/", response_model=list[CasualtyTypeRead])
+@router.get("", response_model=list[CasualtyTypeRead])
 async def list_casualty_types(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

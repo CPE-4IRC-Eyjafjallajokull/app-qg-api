@@ -16,7 +16,7 @@ from app.schemas.incidents import (
 router = APIRouter(prefix="/phases")
 
 
-@router.post("/", response_model=IncidentPhaseRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=IncidentPhaseRead, status_code=status.HTTP_201_CREATED)
 async def create_incident_phase(
     payload: IncidentPhaseCreate,
     session: AsyncSession = Depends(get_postgres_session),
@@ -28,7 +28,7 @@ async def create_incident_phase(
     return phase
 
 
-@router.get("/", response_model=list[IncidentPhaseRead])
+@router.get("", response_model=list[IncidentPhaseRead])
 async def list_incident_phases(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),

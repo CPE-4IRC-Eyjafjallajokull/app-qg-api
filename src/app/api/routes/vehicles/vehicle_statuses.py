@@ -13,11 +13,11 @@ from app.schemas.vehicles import (
     VehicleStatusUpdate,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/statuses")
 
 
 @router.post(
-    "/statuses",
+    "",
     response_model=VehicleStatusRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -31,7 +31,7 @@ async def create_vehicle_status(
     return status_obj
 
 
-@router.get("/statuses", response_model=list[VehicleStatusRead])
+@router.get("", response_model=list[VehicleStatusRead])
 async def list_vehicle_statuses(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -44,7 +44,7 @@ async def list_vehicle_statuses(
     return result.scalars().all()
 
 
-@router.get("/statuses/{vehicle_status_id}", response_model=VehicleStatusRead)
+@router.get("/{vehicle_status_id}", response_model=VehicleStatusRead)
 async def get_vehicle_status(
     vehicle_status_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> VehicleStatus:
@@ -57,7 +57,7 @@ async def get_vehicle_status(
     )
 
 
-@router.patch("/statuses/{vehicle_status_id}", response_model=VehicleStatusRead)
+@router.patch("/{vehicle_status_id}", response_model=VehicleStatusRead)
 async def update_vehicle_status(
     vehicle_status_id: UUID,
     payload: VehicleStatusUpdate,
@@ -78,7 +78,7 @@ async def update_vehicle_status(
 
 
 @router.delete(
-    "/statuses/{vehicle_status_id}",
+    "/{vehicle_status_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )
