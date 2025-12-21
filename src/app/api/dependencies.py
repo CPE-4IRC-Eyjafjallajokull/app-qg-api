@@ -60,3 +60,57 @@ async def get_current_user(
         )
 
     return await authenticator.authenticate(token)
+
+
+def _has_role(user: AuthenticatedUser, *roles: str) -> bool:
+    return any(role in user.roles for role in roles)
+
+
+def _is_readonly_method(method: str) -> bool:
+    return method in {"GET", "HEAD", "OPTIONS"}
+
+
+async def authorize_request(
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """
+    Enforce simple role-based access rules for protected routes.
+
+    Roles:
+    - qg-operator: full access
+    - qg-vehicles: CRUD only on /vehicles/position-logs, read-only elsewhere
+    - qg-viewer: read-only everywhere
+    """
+    if _has_role(user, "qg-operator"):
+        return user
+
+    method = request.method.upper()
+    path = request.url.path
+
+    if _has_role(user, "qg-vehicles"):
+        if path.startswith("/vehicles/position-logs"):
+            return user
+        if _is_readonly_method(method):
+            return user
+
+    if _has_role(user, "qg-viewer") and _is_readonly_method(method):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Insufficient permissions",
+    )
+
+
+async def authorize_events(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """Restrict /events to operators and vehicle roles only."""
+    if _has_role(user, "qg-operator", "qg-vehicles"):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Insufficient permissions",
+    )
