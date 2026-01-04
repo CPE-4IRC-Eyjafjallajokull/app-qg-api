@@ -57,9 +57,7 @@ async def async_client(client_transport):
         yield client
 
 
-@pytest.fixture
-def auth_headers() -> dict[str, str]:
-    """Generate a signed JWT for tests."""
+def _build_auth_headers(roles: list[str]) -> dict[str, str]:
     now = int(time.time())
     token = jwt.encode(
         {
@@ -69,10 +67,22 @@ def auth_headers() -> dict[str, str]:
             "iat": now,
             "exp": now + 3600,
             "preferred_username": "tester",
-            "realm_access": {"roles": ["tester"]},
+            "realm_access": {"roles": roles},
         },
         PRIVATE_KEY,
         algorithm="RS256",
         headers={"kid": TEST_KID},
     )
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    """Generate a signed JWT for tests."""
+    return _build_auth_headers(["tester"])
+
+
+@pytest.fixture
+def auth_headers_viewer() -> dict[str, str]:
+    """JWT with read-only role for protected GET endpoints."""
+    return _build_auth_headers(["qg-viewer"])
