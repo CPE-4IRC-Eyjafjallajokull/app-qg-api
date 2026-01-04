@@ -24,6 +24,7 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
 
         # Register event handlers once at init time
         self.on(Event.INCIDENT_ACK.value, self._forward_to_sse)
+        self.on(Event.VEHICLE_ASSIGNMENT_PROPOSAL.value, self._forward_to_sse)
 
     async def _forward_to_sse(self, message: QueueEvent) -> None:
         await self._sse_manager.notify(
