@@ -118,6 +118,25 @@ class KeycloakSettings(BaseEnvSettings):
         return f"{self.get_issuer()}/protocol/openid-connect/certs"
 
 
+class NominatimSettings(BaseEnvSettings):
+    """Nominatim reverse-geocoding configuration (prefix: NOMINATIM_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="NOMINATIM_",
+    )
+
+    base_url: str = "https://nominatim.openstreetmap.org"
+    timeout_seconds: float = 4.0
+    user_agent: str | None = None
+    accept_language: str = "fr"
+    cache_ttl_seconds: float = 600.0
+    throttle_seconds: float = 1.0
+    cache_rounding_precision: int = 5
+
+
 class Settings(BaseEnvSettings):
     """Root application settings grouped by concern."""
 
@@ -132,6 +151,7 @@ class Settings(BaseEnvSettings):
     rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
     keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
+    nominatim: NominatimSettings = Field(default_factory=NominatimSettings)
 
 
 @lru_cache
