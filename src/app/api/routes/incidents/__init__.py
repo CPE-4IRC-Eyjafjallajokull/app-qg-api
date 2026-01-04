@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_postgres_session
 from app.api.routes.incidents.phase import router as phase_router
 from app.api.routes.incidents.phases import router as phases_router
-from app.api.routes.incidents.queue import router as queue_router
 from app.api.routes.incidents.vehicle_requirement_groups import (
     router as vehicle_requirement_groups_router,
 )
@@ -20,10 +19,8 @@ from app.schemas.incidents import IncidentCreate, IncidentRead, IncidentUpdate
 
 router = APIRouter(tags=["incidents"], prefix="/incidents")
 
-router.include_router(queue_router)
 router.include_router(phases_router)
 router.include_router(phase_router)
-router.include_router(queue_router)
 router.include_router(vehicle_requirement_groups_router)
 router.include_router(vehicle_requirements_router)
 

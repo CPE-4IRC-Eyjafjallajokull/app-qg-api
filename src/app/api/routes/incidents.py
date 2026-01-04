@@ -3,6 +3,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 
 from app.api.dependencies import (
     get_current_user,
@@ -34,7 +35,7 @@ async def new_incident(
     }
     # Preserve legacy top-level fields for downstream consumers that do not use `event`.
     envelope.update(envelope["payload"])
-    message = json.dumps(envelope).encode()
+    message = json.dumps(jsonable_encoder(envelope)).encode()
 
     try:
         await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)

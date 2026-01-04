@@ -3,6 +3,10 @@ from app.schemas.incidents.incident import (
     IncidentRead,
     IncidentUpdate,
 )
+from app.schemas.incidents.incident_declaration import (
+    IncidentDeclarationCreate,
+    IncidentDeclarationRead,
+)
 from app.schemas.incidents.incident_phase import (
     IncidentPhaseCreate,
     IncidentPhaseRead,
@@ -36,6 +40,8 @@ from app.schemas.incidents.phase_type_vehicle_requirement_group import (
 
 __all__ = [
     "IncidentCreate",
+    "IncidentDeclarationCreate",
+    "IncidentDeclarationRead",
     "IncidentRead",
     "IncidentUpdate",
     "IncidentPhaseCreate",
