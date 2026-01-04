@@ -74,6 +74,28 @@ KEYCLOAK_CLIENT_ID=my-api
 
 ---
 
+## 🌍 Reverse geocoding (Nominatim)
+
+- Endpoint: `GET /geocode/reverse?lat=<lat>&lon=<lon>`
+- Auth: même dépendance que les routes protégées (`Authorization: Bearer <jwt>`)
+- Rate limit: 1 req/s par IP + cache mémoire 10 min (clés arrondies à 5 décimales)
+- User-Agent: configurable via `NOMINATIM_USER_AGENT` (recommandé : inclure un moyen de contact)
+- Réponse:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "address": { "road": "Rue Exemple", "city": "Paris" },
+    "display_name": "Rue Exemple, Paris, France",
+    "lat": 48.8566,
+    "lon": 2.3522
+  }
+}
+```
+
+---
+
 ### Avec Docker
 
 #### Build de l'image
@@ -145,6 +167,13 @@ Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 | `KEYCLOAK_AUDIENCE` | Audience attendue (optionnel) | `KEYCLOAK_CLIENT_ID` |
 | `KEYCLOAK_CACHE_TTL_SECONDS` | Cache JWKS (s) | `300` |
 | `KEYCLOAK_TIMEOUT_SECONDS` | Timeout HTTP pour Keycloak (s) | `3.0` |
+| `NOMINATIM_BASE_URL` | URL de Nominatim | `https://nominatim.openstreetmap.org` |
+| `NOMINATIM_TIMEOUT_SECONDS` | Timeout HTTP Nominatim (s) | `4.0` |
+| `NOMINATIM_USER_AGENT` | User-Agent explicite (recommandé) | `null` |
+| `NOMINATIM_ACCEPT_LANGUAGE` | Langue préférée | `fr` |
+| `NOMINATIM_CACHE_TTL_SECONDS` | TTL cache reverse-geocode (s) | `600` |
+| `NOMINATIM_THROTTLE_SECONDS` | Throttle par IP (s) | `1.0` |
+| `NOMINATIM_CACHE_ROUNDING_PRECISION` | Décimales pour la clé cache | `5` |
 
 ---
 
