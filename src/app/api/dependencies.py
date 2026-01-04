@@ -78,11 +78,11 @@ async def authorize_request(
     Enforce simple role-based access rules for protected routes.
 
     Roles:
-    - qg-operator: full access
+    - qg-operator, qg-engine: full access
     - qg-vehicles: CRUD only on /vehicles/position-logs, read-only elsewhere
     - qg-viewer: read-only everywhere
     """
-    if _has_role(user, "qg-operator"):
+    if _has_role(user, "qg-operator", "qg-engine"):
         return user
 
     method = request.method.upper()
@@ -95,6 +95,9 @@ async def authorize_request(
             return user
 
     if _has_role(user, "qg-viewer") and _is_readonly_method(method):
+        return user
+
+    if _has_role(user, "qg-viewer") and path.startswith("/qg/incidents"):
         return user
 
     raise HTTPException(
