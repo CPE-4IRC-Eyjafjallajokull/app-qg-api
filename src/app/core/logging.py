@@ -33,6 +33,11 @@ def configure_logging(
     logging.getLogger("aio_pika").setLevel(logging.WARNING)
     logging.getLogger("aiormq").setLevel(logging.WARNING)
 
+    # Reduce httpcore/httpx noise (SSL handshakes, request details, etc.)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+
     common_processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
