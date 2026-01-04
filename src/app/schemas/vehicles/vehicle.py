@@ -7,7 +7,7 @@ class VehicleBase:
     vehicle_type_id: UUID
     immatriculation: str
     energy_id: UUID | None = None
-    energy_level: int | None = None
+    energy_level: float | None = None
     base_interest_point_id: UUID | None = None
     status_id: UUID | None = None
 
@@ -20,7 +20,7 @@ class VehicleUpdate(UpdateSchema):
     vehicle_type_id: UUID | None = None
     immatriculation: str | None = None
     energy_id: UUID | None = None
-    energy_level: int | None = None
+    energy_level: float | None = None
     base_interest_point_id: UUID | None = None
     status_id: UUID | None = None
 
