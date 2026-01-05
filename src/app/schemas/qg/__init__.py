@@ -10,6 +10,10 @@ from app.schemas.qg.engagements import (
 )
 from app.schemas.qg.resource_planning import QGResourcePlanningRead
 from app.schemas.qg.situation import QGIncidentSituationRead
+from app.schemas.qg.vehicles import (
+    QGVehicleDetail,
+    QGVehiclesListRead,
+)
 
 __all__ = [
     "QGCasualtiesRead",
@@ -22,4 +26,6 @@ __all__ = [
     "QGVehicleAssignmentDetail",
     "QGResourcePlanningRead",
     "QGIncidentSituationRead",
+    "QGVehicleDetail",
+    "QGVehiclesListRead",
 ]
