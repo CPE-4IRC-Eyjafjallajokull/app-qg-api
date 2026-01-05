@@ -7,6 +7,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import jwt
 import pytest
@@ -40,6 +41,42 @@ def _bootstrap_keycloak_test_env() -> tuple[rsa.RSAPrivateKey, Path]:
 PRIVATE_KEY, JWKS_PATH = _bootstrap_keycloak_test_env()
 
 from app.main import app  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def mock_external_services():
+    """Mock automatiquement tous les services externes pour éviter les connexions réelles."""
+    # Mock PostgreSQL
+    mock_postgres = MagicMock()
+    mock_postgres.connect = AsyncMock()
+    mock_postgres.close = AsyncMock()
+    mock_postgres.get_session = AsyncMock()
+    
+    # Mock RabbitMQ
+    mock_rabbitmq = MagicMock()
+    mock_rabbitmq.connect = AsyncMock()
+    mock_rabbitmq.close = AsyncMock()
+    mock_rabbitmq.get_connection = AsyncMock()
+    
+    # Mock Subscriptions
+    mock_subscriptions = MagicMock()
+    mock_subscriptions.start = AsyncMock()
+    mock_subscriptions.stop = AsyncMock()
+    
+    # Inject les mocks dans l'app state
+    app.state.postgres = mock_postgres
+    app.state.rabbitmq = mock_rabbitmq
+    app.state.subscriptions = mock_subscriptions
+    
+    yield
+    
+    # Cleanup (optionnel)
+    if hasattr(app.state, "postgres"):
+        delattr(app.state, "postgres")
+    if hasattr(app.state, "rabbitmq"):
+        delattr(app.state, "rabbitmq")
+    if hasattr(app.state, "subscriptions"):
+        delattr(app.state, "subscriptions")
 
 
 @pytest.fixture
