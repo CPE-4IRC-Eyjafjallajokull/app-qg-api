@@ -5,13 +5,15 @@ import json
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import (
+    authorize_events,
     get_current_user,
     get_postgres_session,
     get_rabbitmq_manager,
@@ -27,8 +29,6 @@ from app.models import (
     Intervention,
     Operator,
     PhaseType,
-    PhaseTypeVehicleRequirement,
-    PhaseTypeVehicleRequirementGroup,
     Vehicle,
     VehicleAssignment,
     VehicleType,
@@ -73,95 +73,47 @@ from app.schemas.qg.situation import (
 from app.schemas.qg.situation import (
     QGCasualtyStatusCount as QGSituationCasualtyStatusCount,
 )
+from app.schemas.qg.vehicles import (
+    QGVehiclesListRead,
+)
 from app.schemas.vehicles import VehicleRead
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
+from app.services.qg import QGService
+from app.services.vehicles import VehicleService
 
 router = APIRouter(prefix="/qg", tags=["qg"])
 
 
-def _incident_status(incident: Incident) -> str:
-    return "ENDED" if incident.ended_at else "ONGOING"
+@router.get("/live")
+async def qg_livestream(
+    sse_manager: SSEManager = Depends(get_sse_manager),
+    _=Depends(authorize_events),
+    events: list[str] | None = Query(
+        default=None,
+        description="Optional list of event names to subscribe to",
+        alias="events",
+    ),
+):
+    """
+    Server-sent events stream for one-way, real-time updates.
 
-
-async def _get_active_phase_type_ids(
-    session: AsyncSession, incident_id: UUID
-) -> list[UUID]:
-    phase_type_rows = await session.execute(
-        select(IncidentPhase.phase_type_id)
-        .where(
-            IncidentPhase.incident_id == incident_id,
-            IncidentPhase.ended_at.is_(None),
-        )
-        .distinct()
+    This endpoint provides:
+    - Real-time internal events broadcast through the SSE manager
+    - Optional filtering by event name via the `events` query parameter
+    - Automatic heartbeat to keep connections alive
+    - Graceful disconnection handling
+    """
+    return StreamingResponse(
+        sse_manager.event_stream(events=events),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
     )
-    return [row[0] for row in phase_type_rows]
-
-
-async def _fetch_requirement_groups(
-    session: AsyncSession, phase_type_ids: list[UUID]
-) -> list[PhaseTypeVehicleRequirementGroup]:
-    if not phase_type_ids:
-        return []
-
-    groups_result = await session.execute(
-        select(PhaseTypeVehicleRequirementGroup)
-        .options(
-            selectinload(PhaseTypeVehicleRequirementGroup.phase_type),
-            selectinload(PhaseTypeVehicleRequirementGroup.requirements).selectinload(
-                PhaseTypeVehicleRequirement.vehicle_type
-            ),
-        )
-        .where(PhaseTypeVehicleRequirementGroup.phase_type_id.in_(phase_type_ids))
-    )
-    return groups_result.scalars().all()
-
-
-def _aggregate_requirements(
-    groups: list[PhaseTypeVehicleRequirementGroup],
-) -> tuple[dict[UUID, int], dict[UUID, VehicleType]]:
-    required_by_type: dict[UUID, int] = {}
-    vehicle_types: dict[UUID, VehicleType] = {}
-
-    for group in groups:
-        requirements = group.requirements
-        group_total = 0
-        for requirement in requirements:
-            vehicle_types[requirement.vehicle_type_id] = requirement.vehicle_type
-            count = requirement.min_quantity or 0
-            group_total += count
-            if count:
-                required_by_type[requirement.vehicle_type_id] = (
-                    required_by_type.get(requirement.vehicle_type_id, 0) + count
-                )
-
-        target_total = group_total
-        if group.min_total is not None:
-            target_total = max(group_total, group.min_total)
-
-        if group.max_total is not None:
-            target_total = min(target_total, group.max_total)
-
-        if target_total > group_total and requirements:
-            sorted_requirements = sorted(
-                requirements,
-                key=lambda req: (
-                    req.preference_rank is None,
-                    req.preference_rank or 0,
-                ),
-            )
-            remaining = target_total - group_total
-            index = 0
-            while remaining > 0:
-                requirement = sorted_requirements[index % len(sorted_requirements)]
-                required_by_type[requirement.vehicle_type_id] = (
-                    required_by_type.get(requirement.vehicle_type_id, 0) + 1
-                )
-                remaining -= 1
-                index += 1
-
-    return required_by_type, vehicle_types
 
 
 @router.post(
@@ -377,7 +329,7 @@ async def get_incident_situation(
     )
 
     incident_data = IncidentRead.model_validate(incident).model_dump()
-    incident_data["status"] = _incident_status(incident)
+    incident_data["status"] = QGService.get_incident_status(incident)
 
     return QGIncidentSituationRead(
         incident=QGIncidentSnapshot(**incident_data),
@@ -400,8 +352,9 @@ async def get_resource_planning(
         "Incident not found",
     )
 
-    phase_type_ids = await _get_active_phase_type_ids(session, incident_id)
-    groups = await _fetch_requirement_groups(session, phase_type_ids)
+    qg_service = QGService(session)
+    phase_type_ids = await qg_service.get_active_phase_type_ids(incident_id)
+    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
 
     phase_requirements_map: dict[UUID, QGPhaseRequirements] = {}
     for group in groups:
@@ -487,7 +440,7 @@ async def get_resource_planning(
     )
     assigned_map = {row[0]: row[1] for row in assigned_result}
 
-    required_by_type, vehicle_types = _aggregate_requirements(groups)
+    required_by_type, vehicle_types = QGService.aggregate_requirements(groups)
 
     availability = []
     for vehicle_type_id, data in totals_map.items():
@@ -568,9 +521,10 @@ async def list_vehicles_to_send(
         "Incident not found",
     )
 
-    phase_type_ids = await _get_active_phase_type_ids(session, incident_id)
-    groups = await _fetch_requirement_groups(session, phase_type_ids)
-    required_by_type, _ = _aggregate_requirements(groups)
+    qg_service = QGService(session)
+    phase_type_ids = await qg_service.get_active_phase_type_ids(incident_id)
+    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
+    required_by_type, _ = QGService.aggregate_requirements(groups)
 
     if not required_by_type:
         return []
@@ -774,4 +728,41 @@ async def list_incident_casualties(
         incident_id=incident_id,
         casualties=casualty_details,
         stats=stats,
+    )
+
+
+@router.get(
+    "/vehicles",
+    response_model=QGVehiclesListRead,
+)
+async def list_all_vehicles(
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGVehiclesListRead:
+    """
+    Liste tous les véhicules avec leurs informations complètes.
+
+    Retourne pour chaque véhicule :
+    - Informations de base (immatriculation, type, énergie, statut)
+    - Point d'intérêt de base (caserne)
+    - Position actuelle (dernière position connue)
+    - Stocks de consommables
+    - Affectation active (si le véhicule est en mission)
+    """
+    vehicle_service = VehicleService(session)
+
+    vehicles = await vehicle_service.fetch_all_vehicles_with_relations()
+
+    vehicle_ids = [vehicle.vehicle_id for vehicle in vehicles]
+    positions_map = await vehicle_service.fetch_latest_positions(vehicle_ids)
+
+    vehicle_details = [
+        VehicleService.build_vehicle_detail(
+            vehicle, positions_map.get(vehicle.vehicle_id)
+        )
+        for vehicle in vehicles
+    ]
+
+    return QGVehiclesListRead(
+        vehicles=vehicle_details,
+        total=len(vehicle_details),
     )
