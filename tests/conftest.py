@@ -51,25 +51,25 @@ def mock_external_services():
     mock_postgres.connect = AsyncMock()
     mock_postgres.close = AsyncMock()
     mock_postgres.get_session = AsyncMock()
-    
+
     # Mock RabbitMQ
     mock_rabbitmq = MagicMock()
     mock_rabbitmq.connect = AsyncMock()
     mock_rabbitmq.close = AsyncMock()
     mock_rabbitmq.get_connection = AsyncMock()
-    
+
     # Mock Subscriptions
     mock_subscriptions = MagicMock()
     mock_subscriptions.start = AsyncMock()
     mock_subscriptions.stop = AsyncMock()
-    
+
     # Inject les mocks dans l'app state
     app.state.postgres = mock_postgres
     app.state.rabbitmq = mock_rabbitmq
     app.state.subscriptions = mock_subscriptions
-    
+
     yield
-    
+
     # Cleanup (optionnel)
     if hasattr(app.state, "postgres"):
         delattr(app.state, "postgres")
