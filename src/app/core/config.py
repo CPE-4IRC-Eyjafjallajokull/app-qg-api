@@ -110,11 +110,17 @@ class KeycloakSettings(BaseEnvSettings):
     audience: str | None = None
     cache_ttl_seconds: int = 300
     timeout_seconds: float = 3.0
+    jwks_url: str | None = None
+    issuer: str | None = None
 
     def get_issuer(self) -> str:
+        if self.issuer:
+            return self.issuer
         return f"{self.server_url.rstrip('/')}/realms/{self.realm}"
 
     def get_jwks_url(self) -> str:
+        if self.jwks_url:
+            return self.jwks_url
         return f"{self.get_issuer()}/protocol/openid-connect/certs"
 
 
