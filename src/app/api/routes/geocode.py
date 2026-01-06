@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.core.logging import get_logger
 from app.services.geocoding.nominatim import GeocodeError, reverse_geocoder
 
-router = APIRouter(prefix="/geocode", tags=["geocode"])
+router = APIRouter(prefix="/address", tags=["address"])
 log = get_logger(__name__)
 _geocoder = reverse_geocoder
 

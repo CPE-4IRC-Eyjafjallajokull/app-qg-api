@@ -143,6 +143,22 @@ class NominatimSettings(BaseEnvSettings):
     cache_rounding_precision: int = 5
 
 
+class OSRMSettings(BaseEnvSettings):
+    """OSRM routing service configuration (prefix: OSRM_)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="OSRM_",
+    )
+
+    base_url: str = "https://osrm.mathislambert.fr"
+    username: str = "osrm"
+    password: str = "osrm_secure_password_2026"
+    timeout_seconds: float = 10.0
+
+
 class Settings(BaseEnvSettings):
     """Root application settings grouped by concern."""
 
@@ -158,6 +174,7 @@ class Settings(BaseEnvSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
     nominatim: NominatimSettings = Field(default_factory=NominatimSettings)
+    osrm: OSRMSettings = Field(default_factory=OSRMSettings)
 
 
 @lru_cache

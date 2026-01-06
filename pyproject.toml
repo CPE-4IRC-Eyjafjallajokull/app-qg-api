@@ -23,6 +23,7 @@ dependencies = [
     "aio-pika>=9.5.8",
     "httpx>=0.28.1",
     "pyjwt[crypto]>=2.9.0",
+    "polyline>=2.0.0",
 ]
 
 [dependency-groups]
