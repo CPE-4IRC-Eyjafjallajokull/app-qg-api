@@ -2,19 +2,11 @@ name: CodeQL SAST
 
 on:
   push:
-    branches: [main, develop]
-    paths:
-      - "**.py"
-      - "pyproject.toml"
-      - "uv.lock"
-
+    branches: [main]
+  
   pull_request:
-    branches: [main, develop]
-    paths:
-      - "**.py"
-      - "pyproject.toml"
-      - "uv.lock"
-
+    branches: [main]
+    
   schedule:
     - cron: "0 5 * * 3"
 
