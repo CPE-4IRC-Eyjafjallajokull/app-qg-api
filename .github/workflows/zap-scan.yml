@@ -2,10 +2,10 @@ name: OWASP ZAP DAST
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
 
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
   schedule:
     - cron: "0 3 * * 2"
