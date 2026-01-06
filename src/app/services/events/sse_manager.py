@@ -30,10 +30,16 @@ class SSEManager:
     - SSE clients use `event_stream(...)` to receive SSE-formatted messages.
     """
 
-    def __init__(self, heartbeat_interval: float = 30.0, queue_size: int = 100):
+    def __init__(
+        self,
+        heartbeat_interval: float = 30.0,
+        queue_size: int = 100,
+        queue_overflow_strategy: str = "drop_newest",
+    ):
         self._subscribers: list[_Subscriber] = []
         self._heartbeat_interval = heartbeat_interval
         self._queue_size = queue_size
+        self._queue_overflow_strategy = queue_overflow_strategy
         self._lock = asyncio.Lock()
 
     @property
@@ -165,14 +171,63 @@ class SSEManager:
             if not subscriber.accepts(event_name):
                 continue
 
+            await self._enqueue(subscriber, message, event_name)
+
+    async def _enqueue(
+        self,
+        subscriber: _Subscriber,
+        message: EventPayload,
+        event_name: str,
+    ) -> None:
+        try:
+            subscriber.queue.put_nowait(message)
+            return
+        except asyncio.QueueFull:
+            pass
+
+        strategy = self._queue_overflow_strategy
+        if strategy == "block":
+            log.warning(
+                "sse.queue.full",
+                event_name=event_name,
+                kind=subscriber.kind,
+                action="block",
+                queue_size=self._queue_size,
+            )
+            await subscriber.queue.put(message)
+            return
+
+        if strategy == "drop_oldest":
+            try:
+                subscriber.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
             try:
                 subscriber.queue.put_nowait(message)
+                log.warning(
+                    "sse.queue.full",
+                    event_name=event_name,
+                    kind=subscriber.kind,
+                    action="drop_oldest",
+                    queue_size=self._queue_size,
+                )
             except asyncio.QueueFull:
                 log.warning(
                     "sse.queue.full",
                     event_name=event_name,
                     kind=subscriber.kind,
+                    action="drop_oldest_failed",
+                    queue_size=self._queue_size,
                 )
+            return
+
+        log.warning(
+            "sse.queue.full",
+            event_name=event_name,
+            kind=subscriber.kind,
+            action="drop_newest",
+            queue_size=self._queue_size,
+        )
 
     @staticmethod
     def _build_message(event: str, data: Any) -> EventPayload:

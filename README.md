@@ -158,6 +158,8 @@ Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 | `APP_LOG_FORMAT` | Format des logs (`json` ou `console`) | `json` |
 | `APP_CORS_ORIGINS` | Origines autorisées (CSV) | `*` |
 | `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `25` |
+| `APP_EVENTS_QUEUE_SIZE` | Taille de la file SSE par client | `100` |
+| `APP_EVENTS_QUEUE_OVERFLOW_STRATEGY` | Stratégie queue SSE (`drop_newest`, `drop_oldest`, `block`) | `drop_newest` |
 | `POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://postgres:postgres@localhost:5432/app` |
 | `RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
 | `AUTH_DISABLED` | Désactiver l'auth (local/tests) | `false` |

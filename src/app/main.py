@@ -26,7 +26,9 @@ async def lifespan(app: FastAPI):
     app.state.postgres = PostgresManager(settings.database)
     app.state.rabbitmq = RabbitMQManager(settings.rabbitmq)
     app.state.sse = SSEManager(
-        heartbeat_interval=settings.app.events_ping_interval_seconds
+        heartbeat_interval=settings.app.events_ping_interval_seconds,
+        queue_size=settings.app.events_queue_size,
+        queue_overflow_strategy=settings.app.events_queue_overflow_strategy,
     )
     app.state.subscriptions = ApplicationSubscriptions(
         app.state.rabbitmq, app.state.sse

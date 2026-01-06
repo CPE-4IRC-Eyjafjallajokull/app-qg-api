@@ -58,6 +58,28 @@ async def test_listen_filters_events():
 
 
 @pytest.mark.asyncio
+async def test_notify_drop_oldest_when_queue_full():
+    manager = SSEManager(
+        heartbeat_interval=0.05,
+        queue_size=1,
+        queue_overflow_strategy="drop_oldest",
+    )
+
+    stream = manager.event_stream()
+    await stream.__anext__()  # connected
+
+    await manager.notify("first", {"n": 1})
+    await manager.notify("second", {"n": 2})
+
+    delivered = await asyncio.wait_for(stream.__anext__(), timeout=0.1)
+
+    assert '"event": "second"' in delivered
+    assert '"n": 2' in delivered
+
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
 async def test_disconnect_all_clears_clients():
     manager = SSEManager(heartbeat_interval=0.05)
 

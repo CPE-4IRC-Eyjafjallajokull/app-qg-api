@@ -36,6 +36,8 @@ class AppSettings(BaseEnvSettings):
 
     # SSE / events
     events_ping_interval_seconds: int = 25
+    events_queue_size: int = 100
+    events_queue_overflow_strategy: str = "drop_newest"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -50,6 +52,24 @@ class AppSettings(BaseEnvSettings):
         normalized = value.lower()
         if normalized not in {"json", "console"}:
             msg = "log_format must be either 'json' or 'console'"
+            raise ValueError(msg)
+        return normalized
+
+    @field_validator("events_queue_size")
+    @classmethod
+    def validate_events_queue_size(cls, value: int) -> int:
+        if value < 1:
+            msg = "events_queue_size must be >= 1"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("events_queue_overflow_strategy")
+    @classmethod
+    def validate_events_queue_overflow_strategy(cls, value: str) -> str:
+        normalized = value.lower()
+        allowed = {"drop_newest", "drop_oldest", "block"}
+        if normalized not in allowed:
+            msg = "events_queue_overflow_strategy must be one of: drop_newest, drop_oldest, block"
             raise ValueError(msg)
         return normalized
 
