@@ -127,7 +127,7 @@ async def test_geocode_endpoint(async_client, auth_headers_viewer, monkeypatch):
     monkeypatch.setattr(geocode_routes, "_geocoder", geocoder)
     
     response = await async_client.get(
-        "/geocode/reverse?lat=48.8566&lon=2.3522",
+        "/geo/address/reverse?lat=48.8566&lon=2.3522",
         headers={**auth_headers_viewer, "X-Forwarded-For": "1.2.3.4"}
     )
     

@@ -1,5 +1,5 @@
 """
-Tests pour l'endpoint /geocode/reverse.
+Tests pour l'endpoint /geo/address/reverse.
 """
 
 import pytest
@@ -29,7 +29,7 @@ def geocoder_stub(monkeypatch):
 async def test_reverse_geocode_ok(async_client, auth_headers_viewer, geocoder_stub):
     headers = {**auth_headers_viewer, "X-Forwarded-For": "1.2.3.4"}
     response = await async_client.get(
-        "/geocode/reverse?lat=48.8566&lon=2.3522", headers=headers
+        "/geo/address/reverse?lat=48.8566&lon=2.3522", headers=headers
     )
 
     assert response.status_code == 200
@@ -42,7 +42,7 @@ async def test_reverse_geocode_ok(async_client, auth_headers_viewer, geocoder_st
 @pytest.mark.asyncio
 async def test_reverse_geocode_missing_params(async_client, auth_headers_viewer):
     headers = {**auth_headers_viewer, "X-Forwarded-For": "1.2.3.4"}
-    response = await async_client.get("/geocode/reverse?lat=48.0", headers=headers)
+    response = await async_client.get("/geo/address/reverse?lat=48.0", headers=headers)
 
     assert response.status_code == 400
     payload = response.json()
@@ -57,10 +57,10 @@ async def test_reverse_geocode_throttle(
     headers = {**auth_headers_viewer, "X-Forwarded-For": "1.2.3.4"}
 
     first = await async_client.get(
-        "/geocode/reverse?lat=48.8566&lon=2.3522", headers=headers
+        "/geo/address/reverse?lat=48.8566&lon=2.3522", headers=headers
     )
     second = await async_client.get(
-        "/geocode/reverse?lat=48.8566&lon=2.3522", headers=headers
+        "/geo/address/reverse?lat=48.8566&lon=2.3522", headers=headers
     )
 
     assert first.status_code == 200

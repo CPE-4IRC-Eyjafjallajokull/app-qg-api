@@ -76,7 +76,7 @@ KEYCLOAK_CLIENT_ID=my-api
 
 ## 🌍 Reverse geocoding (Nominatim)
 
-- Endpoint: `GET /geocode/reverse?lat=<lat>&lon=<lon>`
+- Endpoint: `GET /geo/address/reverse?lat=<lat>&lon=<lon>`
 - Auth: même dépendance que les routes protégées (`Authorization: Bearer <jwt>`)
 - Rate limit: 1 req/s par IP + cache mémoire 10 min (clés arrondies à 5 décimales)
 - User-Agent: configurable via `NOMINATIM_USER_AGENT` (recommandé : inclure un moyen de contact)
