@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -165,3 +166,22 @@ class VehicleService:
             consumable_stocks=consumable_stocks_dto,
             active_assignment=active_assignment_dto,
         )
+
+    async def create_vehicle_position(
+        self,
+        vehicle_id: UUID,
+        latitude: float | None,
+        longitude: float | None,
+        timestamp: datetime,
+    ) -> VehiclePositionLog:
+        """Crée une nouvelle entrée de position pour un véhicule."""
+        position = VehiclePositionLog(
+            vehicle_id=vehicle_id,
+            latitude=latitude,
+            longitude=longitude,
+            timestamp=timestamp,
+        )
+        self.session.add(position)
+        await self.session.commit()
+        await self.session.refresh(position)
+        return position

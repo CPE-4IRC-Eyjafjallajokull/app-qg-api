@@ -52,11 +52,24 @@ async def request_validation_error_handler(
 async def pydantic_validation_error_handler(
     request: Request, exc: ValidationError
 ) -> JSONResponse:
+    errors = exc.errors()
     log.error(
         "validation.response_error",
         path=request.url.path,
         method=request.method,
         error_count=exc.error_count(),
+        errors=errors,
+        error_details=[
+            {
+                "loc": err.get("loc"),
+                "msg": err.get("msg"),
+                "type": err.get("type"),
+                "input": str(err.get("input"))[:200]
+                if err.get("input") is not None
+                else None,
+            }
+            for err in errors
+        ],
     )
     return JSONResponse(
         status_code=500,
@@ -110,11 +123,13 @@ async def sqlalchemy_error_handler(
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    log.exception(
+    log.error(
         "unhandled_exception",
         path=request.url.path,
         method=request.method,
         error_type=type(exc).__name__,
+        error_message=str(exc),
+        exc_info=True,
     )
     return JSONResponse(
         status_code=500,

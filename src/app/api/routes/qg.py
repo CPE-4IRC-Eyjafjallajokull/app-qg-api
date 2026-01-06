@@ -73,6 +73,8 @@ from app.schemas.qg.situation import (
     QGCasualtyStatusCount as QGSituationCasualtyStatusCount,
 )
 from app.schemas.qg.vehicles import (
+    QGVehiclePosition,
+    QGVehiclePositionRead,
     QGVehiclesListRead,
 )
 from app.schemas.vehicles import VehicleRead
@@ -162,8 +164,18 @@ async def declare_incident(
     )
     session.add(phase)
     await session.commit()
-    await session.refresh(incident)
-    await session.refresh(phase)
+
+    # Reload with relationships
+    incident = await session.scalar(
+        select(Incident).where(Incident.incident_id == incident.incident_id)
+    )
+    phase = await session.scalar(
+        select(IncidentPhase)
+        .where(IncidentPhase.incident_phase_id == phase.incident_phase_id)
+        .options(
+            selectinload(IncidentPhase.phase_type), selectinload(IncidentPhase.incident)
+        )
+    )
 
     response = IncidentDeclarationRead(
         incident=IncidentRead.model_validate(incident),
@@ -755,4 +767,37 @@ async def list_all_vehicles(
     return QGVehiclesListRead(
         vehicles=vehicle_details,
         total=len(vehicle_details),
+    )
+
+
+@router.post(
+    "/vehicles/{vehicle_immatriculation}/position",
+    response_model=QGVehiclePositionRead,
+)
+async def update_vehicle_position(
+    vehicle_immatriculation: str,
+    payload: QGVehiclePosition,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGVehiclePositionRead:
+    """
+    Met à jour la position actuelle d'un véhicule identifié par son immatriculation.
+
+    Si le véhicule n'existe pas, une erreur 404 est retournée.
+    """
+    vehicle: Vehicle = await fetch_one_or_404(
+        session,
+        select(Vehicle).where(Vehicle.immatriculation == vehicle_immatriculation),
+        "Vehicle not found",
+    )
+
+    vehicle_service = VehicleService(session)
+    vehicle_position = await vehicle_service.create_vehicle_position(
+        vehicle.vehicle_id, payload.latitude, payload.longitude, payload.timestamp
+    )
+
+    return QGVehiclePositionRead(
+        vehicle_immatriculation=vehicle.immatriculation,
+        latitude=vehicle_position.latitude,
+        longitude=vehicle_position.longitude,
+        timestamp=vehicle_position.timestamp,
     )

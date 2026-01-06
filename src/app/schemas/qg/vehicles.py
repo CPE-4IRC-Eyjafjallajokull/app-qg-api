@@ -79,6 +79,17 @@ class QGVehiclePosition(BaseModel):
     timestamp: datetime
 
 
+class QGVehiclePositionRead(BaseModel):
+    """Lecture de la position actuelle d'un véhicule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vehicle_immatriculation: str
+    latitude: float | None = None
+    longitude: float | None = None
+    timestamp: datetime
+
+
 class QGActiveAssignment(BaseModel):
     """Affectation active d'un véhicule."""
 
