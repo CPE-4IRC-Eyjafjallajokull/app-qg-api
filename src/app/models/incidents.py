@@ -24,7 +24,6 @@ from app.models.enums import IncidentPhaseDependencyKind, VehicleRequirementRule
 
 if TYPE_CHECKING:
     from .casualties import Casualty
-    from .interventions import Intervention
     from .operators import Operator
     from .vehicles import VehicleAssignment, VehicleType
 
@@ -60,12 +59,6 @@ class Incident(Base, TimestampMixin):
     )
     phases: Mapped[list["IncidentPhase"]] = relationship(
         "IncidentPhase",
-        back_populates="incident",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    interventions: Mapped[list["Intervention"]] = relationship(
-        "Intervention",
         back_populates="incident",
         cascade="all, delete-orphan",
         passive_deletes=True,

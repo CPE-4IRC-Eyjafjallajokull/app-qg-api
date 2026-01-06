@@ -26,7 +26,6 @@ from app.models import (
     CasualtyStatus,
     Incident,
     IncidentPhase,
-    Intervention,
     Operator,
     PhaseType,
     Vehicle,
@@ -566,13 +565,6 @@ async def list_incident_engagements(
         "Incident not found",
     )
 
-    interventions_result = await session.execute(
-        select(Intervention)
-        .where(Intervention.incident_id == incident_id)
-        .order_by(Intervention.created_at.desc())
-    )
-    interventions = interventions_result.scalars().all()
-
     assignments_result = await session.execute(
         select(VehicleAssignment)
         .join(
@@ -602,7 +594,6 @@ async def list_incident_engagements(
         assignment_details.append(
             QGVehicleAssignmentDetail(
                 vehicle_assignment_id=assignment.vehicle_assignment_id,
-                intervention_id=assignment.intervention_id,
                 vehicle_id=assignment.vehicle_id,
                 incident_phase_id=assignment.incident_phase_id,
                 assigned_at=assignment.assigned_at,
@@ -629,7 +620,6 @@ async def list_incident_engagements(
 
     return QGIncidentEngagementsRead(
         incident_id=incident_id,
-        interventions=interventions,
         vehicle_assignments=assignment_details,
     )
 

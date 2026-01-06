@@ -22,7 +22,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from .casualties import CasualtyTransport
     from .consumables import VehicleConsumableStock, VehicleTypeConsumableSpec
-    from .incidents import IncidentPhase, Intervention, PhaseTypeVehicleRequirement
+    from .incidents import IncidentPhase, PhaseTypeVehicleRequirement
     from .interest_points import InterestPoint
     from .operators import Operator
     from .vehicles import VehicleAssignment, VehicleType
@@ -151,7 +151,6 @@ class VehicleAssignment(Base):
     __tablename__ = "vehicle_assignments"
     __table_args__ = (
         Index("ix_vehicle_assignments_vehicle", "vehicle_id"),
-        Index("ix_vehicle_assignments_intervention", "intervention_id"),
         Index("ix_vehicle_assignments_incident_phase", "incident_phase_id"),
         Index(
             "uq_vehicle_active_assignment",
@@ -169,12 +168,7 @@ class VehicleAssignment(Base):
         ForeignKey("vehicles.vehicle_id", ondelete="CASCADE"),
         nullable=False,
     )
-    intervention_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("interventions.intervention_id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    incident_phase_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    incident_phase_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("incident_phases.incident_phase_id", ondelete="SET NULL"),
         nullable=True,
@@ -182,20 +176,26 @@ class VehicleAssignment(Base):
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    unassigned_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
     assigned_by_operator_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("operators.operator_id", ondelete="SET NULL"),
         nullable=True,
     )
+    validated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    validated_by_operator_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("operators.operator_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    unassigned_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     vehicle: Mapped[Vehicle] = relationship(
         "Vehicle", back_populates="assignments", passive_deletes=True
-    )
-    intervention: Mapped["Intervention"] = relationship(
-        "Intervention", back_populates="vehicle_assignments", passive_deletes=True
     )
     incident_phase: Mapped[Optional["IncidentPhase"]] = relationship(
         "IncidentPhase", back_populates="vehicle_assignments", passive_deletes=True
@@ -204,6 +204,9 @@ class VehicleAssignment(Base):
         "Operator",
         foreign_keys=[assigned_by_operator_id],
         back_populates="vehicle_assignments_made",
+    )
+    validated_by_operator: Mapped[Optional["Operator"]] = relationship(
+        "Operator", foreign_keys=[validated_by_operator_id]
     )
     casualty_transports: Mapped[list["CasualtyTransport"]] = relationship(
         "CasualtyTransport",

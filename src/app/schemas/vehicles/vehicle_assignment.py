@@ -6,10 +6,13 @@ from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
 
 class VehicleAssignmentBase:
     vehicle_id: UUID
-    intervention_id: UUID
     incident_phase_id: UUID | None = None
-    unassigned_at: datetime | None = None
+    assigned_at: datetime | None = None
     assigned_by_operator_id: UUID | None = None
+    validated_at: datetime | None = None
+    validated_by_operator_id: UUID | None = None
+    unassigned_at: datetime | None = None
+    notes: str | None = None
 
 
 class VehicleAssignmentCreate(VehicleAssignmentBase, CreateSchema):
@@ -24,4 +27,3 @@ class VehicleAssignmentUpdate(UpdateSchema):
 
 class VehicleAssignmentRead(VehicleAssignmentBase, ReadSchema):
     vehicle_assignment_id: UUID
-    assigned_at: datetime

@@ -26,7 +26,6 @@ from app.models.interest_points import (
     InterestPointConsumableType,
     InterestPointKind,
 )
-from app.models.interventions import Intervention
 from app.models.operators import Operator
 from app.models.vehicles import (
     Energy,
@@ -54,7 +53,6 @@ __all__ = [
     "InterestPointConsumable",
     "InterestPointConsumableType",
     "InterestPointKind",
-    "Intervention",
     "Operator",
     "PhaseCategory",
     "PhaseType",

@@ -85,7 +85,6 @@ class QGActiveAssignment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     vehicle_assignment_id: UUID
-    intervention_id: UUID
     incident_phase_id: UUID | None = None
     assigned_at: datetime
     assigned_by_operator_id: UUID | None = None

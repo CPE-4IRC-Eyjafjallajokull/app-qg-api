@@ -11,7 +11,6 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from .incidents import Incident
-    from .interventions import Intervention
     from .vehicles import VehicleAssignment
 
 
@@ -27,18 +26,6 @@ class Operator(Base):
 
     incidents_created: Mapped[list["Incident"]] = relationship(
         "Incident", back_populates="created_by", passive_deletes=True
-    )
-    interventions_created: Mapped[list["Intervention"]] = relationship(
-        "Intervention",
-        back_populates="created_by_operator",
-        foreign_keys="Intervention.created_by_operator_id",
-        passive_deletes=True,
-    )
-    interventions_validated: Mapped[list["Intervention"]] = relationship(
-        "Intervention",
-        back_populates="validated_by_operator",
-        foreign_keys="Intervention.validated_by_operator_id",
-        passive_deletes=True,
     )
     vehicle_assignments_made: Mapped[list["VehicleAssignment"]] = relationship(
         "VehicleAssignment",

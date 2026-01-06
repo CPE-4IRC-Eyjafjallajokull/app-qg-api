@@ -37,7 +37,6 @@ async def list_vehicle_assignments(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     vehicle_id: UUID | None = Query(None),
-    intervention_id: UUID | None = Query(None),
     active_only: bool = Query(
         False, description="If true, only return assignments without unassigned_at"
     ),
@@ -46,8 +45,6 @@ async def list_vehicle_assignments(
     stmt = select(VehicleAssignment)
     if vehicle_id:
         stmt = stmt.where(VehicleAssignment.vehicle_id == vehicle_id)
-    if intervention_id:
-        stmt = stmt.where(VehicleAssignment.intervention_id == intervention_id)
     if active_only:
         stmt = stmt.where(VehicleAssignment.unassigned_at.is_(None))
     stmt = (

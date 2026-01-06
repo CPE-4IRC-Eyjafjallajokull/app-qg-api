@@ -147,7 +147,6 @@ class VehicleService:
             if assignment.unassigned_at is None:
                 active_assignment_dto = QGActiveAssignment(
                     vehicle_assignment_id=assignment.vehicle_assignment_id,
-                    intervention_id=assignment.intervention_id,
                     incident_phase_id=assignment.incident_phase_id,
                     assigned_at=assignment.assigned_at,
                     assigned_by_operator_id=assignment.assigned_by_operator_id,
