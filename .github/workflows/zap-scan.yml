@@ -115,6 +115,24 @@ jobs:
           fail_action: false
           artifact_name: "zap-full-scan"
 
+      - name: Fail on ZAP High alerts
+        if: always()
+        run: |
+          set -eo pipefail
+          if [ ! -f report_json.json ]; then
+            echo "⚠️ report_json.json introuvable — vérification ignorée"
+            exit 0
+          fi
+          command -v jq >/dev/null 2>&1 || { echo "Installation de jq..."; sudo apt-get update && sudo apt-get install -y jq; }
+          high_count=$(jq '[.site[]?.alerts[]? | select((.risk // "") | ascii_upcase == "HIGH")] | length' report_json.json)
+          if [ "$high_count" -gt 0 ]; then
+            echo "❌ ZAP a détecté $high_count alerte(s) de sévérité High. Détails :"
+            jq -r '.site[]?.alerts[]? | select((.risk // "") | ascii_upcase == "HIGH") | "- \(.name) | risk:\(.risk) | confidence:\(.confidence) | url:\(.url) | param:\(.param) | evidence:\(.evidence // \"N/A\")"' report_json.json || true
+            exit 1
+          else
+            echo "✅ Aucune alerte High détectée par ZAP."
+          fi
+
       - name: Sauvegarde des rapports ZAP
         uses: actions/upload-artifact@v4
         if: always()
