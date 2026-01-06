@@ -778,6 +778,7 @@ async def update_vehicle_position(
     vehicle_immatriculation: str,
     payload: QGVehiclePosition,
     session: AsyncSession = Depends(get_postgres_session),
+    sse_manager: SSEManager = Depends(get_sse_manager),
 ) -> QGVehiclePositionRead:
     """
     Met à jour la position actuelle d'un véhicule identifié par son immatriculation.
@@ -795,9 +796,24 @@ async def update_vehicle_position(
         vehicle.vehicle_id, payload.latitude, payload.longitude, payload.timestamp
     )
 
-    return QGVehiclePositionRead(
+    response = QGVehiclePositionRead(
         vehicle_immatriculation=vehicle.immatriculation,
         latitude=vehicle_position.latitude,
         longitude=vehicle_position.longitude,
         timestamp=vehicle_position.timestamp,
     )
+
+    await sse_manager.notify(
+        Event.VEHICLE_POSITION_UPDATE.value,
+        {
+            "vehicle_id": str(vehicle.vehicle_id),
+            "vehicle_immatriculation": vehicle.immatriculation,
+            "latitude": vehicle_position.latitude,
+            "longitude": vehicle_position.longitude,
+            "timestamp": vehicle_position.timestamp.isoformat()
+            if vehicle_position.timestamp
+            else None,
+        },
+    )
+
+    return response
