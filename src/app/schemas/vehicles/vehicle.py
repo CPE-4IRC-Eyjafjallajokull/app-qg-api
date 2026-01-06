@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
+from app.schemas.vehicles.vehicle_type import VehicleTypeRead
 
 
 class VehicleBase:
@@ -27,3 +28,4 @@ class VehicleUpdate(UpdateSchema):
 
 class VehicleRead(VehicleBase, ReadSchema):
     vehicle_id: UUID
+    vehicle_type: VehicleTypeRead

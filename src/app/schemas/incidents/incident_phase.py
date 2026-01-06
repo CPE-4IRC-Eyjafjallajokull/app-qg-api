@@ -2,6 +2,8 @@ from datetime import datetime
 from uuid import UUID
 
 from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
+from app.schemas.incidents.incident import IncidentRead
+from app.schemas.incidents.phase_type import PhaseTypeRead
 
 
 class IncidentPhaseBase:
@@ -26,3 +28,5 @@ class IncidentPhaseUpdate(UpdateSchema):
 
 class IncidentPhaseRead(IncidentPhaseBase, ReadSchema):
     incident_phase_id: UUID
+    phase_type: PhaseTypeRead
+    incident: IncidentRead

@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_postgres_session
 from app.api.routes.utils import fetch_one_or_404
@@ -24,7 +25,7 @@ async def create_incident_phase(
     phase = IncidentPhase(**payload.model_dump(exclude_unset=True))
     session.add(phase)
     await session.commit()
-    await session.refresh(phase)
+    await session.refresh(phase, ["phase_type", "incident"])
     return phase
 
 
@@ -36,7 +37,9 @@ async def list_incident_phases(
     phase_type_id: UUID | None = Query(None),
     session: AsyncSession = Depends(get_postgres_session),
 ) -> list[IncidentPhase]:
-    stmt = select(IncidentPhase)
+    stmt = select(IncidentPhase).options(
+        selectinload(IncidentPhase.phase_type), selectinload(IncidentPhase.incident)
+    )
     if incident_id:
         stmt = stmt.where(IncidentPhase.incident_id == incident_id)
     if phase_type_id:
@@ -52,9 +55,11 @@ async def get_incident_phase(
 ) -> IncidentPhase:
     return await fetch_one_or_404(
         session,
-        select(IncidentPhase).where(
-            IncidentPhase.incident_phase_id == incident_phase_id
-        ),
+        select(IncidentPhase)
+        .options(
+            selectinload(IncidentPhase.phase_type), selectinload(IncidentPhase.incident)
+        )
+        .where(IncidentPhase.incident_phase_id == incident_phase_id),
         "Incident phase not found",
     )
 
@@ -67,15 +72,17 @@ async def update_incident_phase(
 ) -> IncidentPhase:
     phase = await fetch_one_or_404(
         session,
-        select(IncidentPhase).where(
-            IncidentPhase.incident_phase_id == incident_phase_id
-        ),
+        select(IncidentPhase)
+        .options(
+            selectinload(IncidentPhase.phase_type), selectinload(IncidentPhase.incident)
+        )
+        .where(IncidentPhase.incident_phase_id == incident_phase_id),
         "Incident phase not found",
     )
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(phase, field, value)
     await session.commit()
-    await session.refresh(phase)
+    await session.refresh(phase, ["phase_type", "incident"])
     return phase
 
 
