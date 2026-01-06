@@ -30,7 +30,7 @@ jobs:
           gitleaks version
 
       - name: Run Gitleaks scan
-        run: gitleaks detect --source . --verbose --report-format sarif --report-path gitleaks.sarif --exit-code 0
+        run: gitleaks detect --source . --verbose --report-format sarif --report-path gitleaks.sarif --exit-code 1
 
       - name: Upload SARIF results
         if: always()
