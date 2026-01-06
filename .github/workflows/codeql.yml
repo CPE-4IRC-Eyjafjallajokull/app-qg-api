@@ -1,0 +1,86 @@
+name: CodeQL SAST
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+
+  schedule:
+    - cron: "0 5 * * 3"
+
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyse CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python"]
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installation de Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installation de uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Initialisation de CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+          config: |
+            paths-ignore:
+              - venv
+              - .venv
+              - __pycache__
+              - "**/*.pyc"
+              - tests
+              - docs
+            paths:
+              - src
+
+      - name: Installation des dépendances
+        run: uv sync
+
+      - name: Analyse de sécurité CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+          upload: true
+
+      - name: Archivage des résultats CodeQL
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: |
+            /home/runner/work/_temp/codeql_databases
+          retention-days: 7
+          if-no-files-found: ignore

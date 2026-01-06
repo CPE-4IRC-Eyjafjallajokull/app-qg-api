@@ -1,0 +1,160 @@
+name: OWASP ZAP DAST
+
+on:
+  push:
+    branches: [main, develop]
+
+  pull_request:
+    branches: [main, develop]
+
+  schedule:
+    - cron: "0 3 * * 2"
+
+  workflow_dispatch:
+
+jobs:
+  zap-scan:
+    name: Scan DAST OWASP ZAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      issues: write
+      security-events: write
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Détection de docker-compose.yml
+        id: check-compose
+        run: |
+          if [ -f "docker-compose.yml" ]; then
+            echo "compose_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ docker-compose.yml détecté - build avec Docker"
+          else
+            echo "compose_exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Pas de docker-compose.yml - build avec uv"
+          fi
+
+      - name: Démarrage avec Docker Compose
+        if: steps.check-compose.outputs.compose_exists == 'true'
+        run: |
+          cat > .env << EOF
+          APP_ENVIRONMENT=production
+          APP_DEBUG=false
+          APP_LOG_LEVEL=INFO
+          POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/app
+          RABBITMQ_DSN=amqp://guest:guest@rabbitmq:5672/
+          EOF
+
+          docker compose up -d
+
+          echo "⏳ Attente du démarrage de l'application..."
+          sleep 20
+
+      - name: Installation de Python 3.12
+        if: steps.check-compose.outputs.compose_exists == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installation de uv
+        if: steps.check-compose.outputs.compose_exists == 'false'
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Installation des dépendances
+        if: steps.check-compose.outputs.compose_exists == 'false'
+        run: uv sync
+
+      - name: Démarrage de l'API FastAPI
+        if: steps.check-compose.outputs.compose_exists == 'false'
+        run: |
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > .api.pid
+          echo "⏳ Attente du démarrage de l'application..."
+          sleep 15
+        env:
+          APP_ENVIRONMENT: production
+          APP_DEBUG: false
+          APP_LOG_LEVEL: INFO
+
+      - name: Vérification de la disponibilité (http://localhost:8000)
+        run: |
+          echo "🔍 Test de connexion à l'API..."
+          timeout 90 bash -c '
+            until curl -f -s -o /dev/null http://localhost:8000/health; do
+              echo "En attente de http://localhost:8000/health..."
+              sleep 3
+            done
+          '
+          echo "✅ API FastAPI disponible sur http://localhost:8000"
+
+      - name: OWASP ZAP - API Scan
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: zaproxy/action-api-scan@v0.9.0
+        with:
+          target: "http://localhost:8000"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a -j -l WARN"
+          issue_title: "ZAP API Scan - Résultats de sécurité"
+          fail_action: false
+          artifact_name: "zap-api-scan"
+
+      - name: OWASP ZAP - Full Scan
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: zaproxy/action-full-scan@v0.10.0
+        with:
+          target: "http://localhost:8000"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a -j -l WARN"
+          issue_title: "ZAP Full Scan - Résultats de sécurité"
+          fail_action: false
+          artifact_name: "zap-full-scan"
+
+      - name: Sauvegarde des rapports ZAP
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-scan-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Arrêt de l'application (Docker Compose)
+        if: always() && steps.check-compose.outputs.compose_exists == 'true'
+        run: docker compose down
+
+      - name: Arrêt de l'application (uv)
+        if: always() && steps.check-compose.outputs.compose_exists == 'false'
+        run: |
+          if [ -f .api.pid ]; then
+            kill $(cat .api.pid) || true
+            rm .api.pid
+          fi
+
+      - name: Création d'issue GitHub pour les alertes critiques
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('report_md.md')) {
+              const report = fs.readFileSync('report_md.md', 'utf8');
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🚨 ZAP DAST - Vulnérabilités détectées',
+                body: `## 🔒 Rapport de scan OWASP ZAP\n\n${report}\n\n---\n\n**📅 Date du scan :** ${new Date().toISOString()}\n**🌿 Branche :** \`${context.ref}\`\n**🔗 Workflow :** [${context.workflow}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['security', 'zap-dast', 'vulnerability']
+              });
+              core.info('✅ Issue GitHub créée avec les résultats du scan');
+            } else {
+              core.warning('⚠️ Aucun rapport ZAP trouvé');
+            }
