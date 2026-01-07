@@ -59,9 +59,7 @@ async def test_list_interest_points_by_kind_returns_points(
     mock_points_result = MagicMock()
     mock_points_result.scalars.return_value.all.return_value = mock_interest_points
 
-    mock_session.execute = AsyncMock(
-        side_effect=[mock_kind_result, mock_points_result]
-    )
+    mock_session.execute = AsyncMock(side_effect=[mock_kind_result, mock_points_result])
 
     # Injection du mock dans les dépendances
     async def override_get_postgres_session():
@@ -140,9 +138,7 @@ async def test_list_interest_points_by_kind_empty_list(
     mock_points_result = MagicMock()
     mock_points_result.scalars.return_value.all.return_value = []
 
-    mock_session.execute = AsyncMock(
-        side_effect=[mock_kind_result, mock_points_result]
-    )
+    mock_session.execute = AsyncMock(side_effect=[mock_kind_result, mock_points_result])
 
     async def override_get_postgres_session():
         yield mock_session
