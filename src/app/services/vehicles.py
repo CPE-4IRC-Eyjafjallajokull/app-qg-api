@@ -7,7 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Vehicle, VehicleConsumableStock, VehiclePositionLog, VehicleStatus
+from app.models import (
+    Vehicle,
+    VehicleConsumableStock,
+    VehiclePositionLog,
+    VehicleStatus,
+)
 from app.schemas.qg.vehicles import (
     QGActiveAssignment,
     QGBaseInterestPoint,
