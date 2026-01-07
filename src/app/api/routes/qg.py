@@ -825,12 +825,10 @@ async def update_vehicle_status(
             detail=str(e),
         ) from None
 
-    timestamp = datetime.now(timezone.utc)
-
     response = QGVehicleStatusRead(
         vehicle_immatriculation=vehicle.immatriculation,
         status_label=vehicle_status.label,
-        timestamp=timestamp,
+        timestamp=payload.timestamp,
     )
 
     await sse_manager.notify(
@@ -839,7 +837,7 @@ async def update_vehicle_status(
             "vehicle_id": str(vehicle.vehicle_id),
             "vehicle_immatriculation": vehicle.immatriculation,
             "status_label": vehicle_status.label,
-            "timestamp": timestamp.isoformat(),
+            "timestamp": payload.timestamp.isoformat(),
         },
     )
 

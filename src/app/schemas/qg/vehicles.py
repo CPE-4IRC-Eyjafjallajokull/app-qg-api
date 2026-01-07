@@ -96,6 +96,7 @@ class QGVehicleStatusUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status_label: str
+    timestamp: datetime
 
 
 class QGVehicleStatusRead(BaseModel):
