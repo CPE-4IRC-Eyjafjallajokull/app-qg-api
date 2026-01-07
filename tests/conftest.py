@@ -120,6 +120,12 @@ def auth_headers() -> dict[str, str]:
 
 
 @pytest.fixture
+def auth_headers_operator() -> dict[str, str]:
+    """JWT with operator role for full access endpoints."""
+    return _build_auth_headers(["qg-operator"])
+
+
+@pytest.fixture
 def auth_headers_viewer() -> dict[str, str]:
     """JWT with read-only role for protected GET endpoints."""
     return _build_auth_headers(["qg-viewer"])

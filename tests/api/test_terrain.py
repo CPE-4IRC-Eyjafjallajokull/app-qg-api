@@ -41,7 +41,7 @@ def mock_interest_points(mock_interest_point_kind):
 @pytest.mark.asyncio
 async def test_list_interest_points_by_kind_returns_points(
     async_client,
-    auth_headers,
+    auth_headers_operator,
     mock_interest_point_kind,
     mock_interest_points,
 ):
@@ -70,9 +70,9 @@ async def test_list_interest_points_by_kind_returns_points(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.get(
+        response = await async_client.post(
             f"/terrain/interest-points/{kind_id}",
-            headers=auth_headers,
+            headers=auth_headers_operator,
         )
 
         assert response.status_code == 200
@@ -86,7 +86,7 @@ async def test_list_interest_points_by_kind_returns_points(
 @pytest.mark.asyncio
 async def test_list_interest_points_by_kind_not_found(
     async_client,
-    auth_headers,
+    auth_headers_operator,
 ):
     """Test que l'endpoint retourne 404 si le kind n'existe pas."""
     unknown_kind_id = uuid.uuid4()
@@ -107,9 +107,9 @@ async def test_list_interest_points_by_kind_not_found(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.get(
+        response = await async_client.post(
             f"/terrain/interest-points/{unknown_kind_id}",
-            headers=auth_headers,
+            headers=auth_headers_operator,
         )
 
         assert response.status_code == 404
@@ -121,7 +121,7 @@ async def test_list_interest_points_by_kind_not_found(
 @pytest.mark.asyncio
 async def test_list_interest_points_by_kind_empty_list(
     async_client,
-    auth_headers,
+    auth_headers_operator,
     mock_interest_point_kind,
 ):
     """Test que l'endpoint retourne une liste vide si aucun point n'existe pour ce kind."""
@@ -148,9 +148,9 @@ async def test_list_interest_points_by_kind_empty_list(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.get(
+        response = await async_client.post(
             f"/terrain/interest-points/{kind_id}",
-            headers=auth_headers,
+            headers=auth_headers_operator,
         )
 
         assert response.status_code == 200
@@ -166,6 +166,6 @@ async def test_list_interest_points_by_kind_requires_auth(async_client):
     """Test que l'endpoint requiert une authentification."""
     kind_id = uuid.uuid4()
 
-    response = await async_client.get(f"/terrain/interest-points/{kind_id}")
+    response = await async_client.post(f"/terrain/interest-points/{kind_id}")
 
     assert response.status_code == 401
