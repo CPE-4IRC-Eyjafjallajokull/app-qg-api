@@ -23,7 +23,7 @@ from app.schemas.interest_points import InterestPointRead
 router = APIRouter(prefix="/terrain", tags=["terrain"])
 
 
-@router.post(
+@router.get(
     "/interest-points/{kind_id}",
     response_model=list[InterestPointRead],
     summary="Liste les points d'intérêt par type",

@@ -70,7 +70,7 @@ async def test_list_interest_points_by_kind_returns_points(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.post(
+        response = await async_client.get(
             f"/terrain/interest-points/{kind_id}",
             headers=auth_headers_operator,
         )
@@ -107,7 +107,7 @@ async def test_list_interest_points_by_kind_not_found(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.post(
+        response = await async_client.get(
             f"/terrain/interest-points/{unknown_kind_id}",
             headers=auth_headers_operator,
         )
@@ -148,7 +148,7 @@ async def test_list_interest_points_by_kind_empty_list(
     app.dependency_overrides[get_postgres_session] = override_get_postgres_session
 
     try:
-        response = await async_client.post(
+        response = await async_client.get(
             f"/terrain/interest-points/{kind_id}",
             headers=auth_headers_operator,
         )
@@ -166,6 +166,6 @@ async def test_list_interest_points_by_kind_requires_auth(async_client):
     """Test que l'endpoint requiert une authentification."""
     kind_id = uuid.uuid4()
 
-    response = await async_client.post(f"/terrain/interest-points/{kind_id}")
+    response = await async_client.get(f"/terrain/interest-points/{kind_id}")
 
     assert response.status_code == 401
