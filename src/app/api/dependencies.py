@@ -89,7 +89,7 @@ async def authorize_request(
     path = request.url.path
 
     if _has_role(user, "qg-vehicles"):
-        if path.startswith("/vehicles/position-logs"):
+        if path.startswith("/qg/vehicles/"):
             return user
         if _is_readonly_method(method):
             return user
@@ -109,7 +109,7 @@ async def authorize_request(
 async def authorize_events(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> AuthenticatedUser:
-    """Restrict /events to operators and vehicle roles only."""
+    """Restrict /qg/live to operators and vehicle roles only."""
     if _has_role(user, "qg-operator", "qg-vehicles"):
         return user
 

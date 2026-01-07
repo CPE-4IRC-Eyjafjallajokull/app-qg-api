@@ -77,7 +77,6 @@ from app.schemas.qg.vehicles import (
     QGVehiclePositionRead,
     QGVehiclesListRead,
 )
-from app.schemas.vehicles import VehicleRead
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
@@ -357,6 +356,15 @@ async def get_incident_situation(
 async def get_resource_planning(
     incident_id: UUID, session: AsyncSession = Depends(get_postgres_session)
 ) -> QGResourcePlanningRead:
+    """
+    Récupère les besoins en ressources pour un incident donné, ainsi que la disponibilité actuelle
+    des véhicules et les écarts éventuels.
+
+    Retourne un objet contenant :
+    - Les besoins par phase et groupe de besoins
+    - La disponibilité des véhicules par type
+    - Les écarts entre les besoins et la disponibilité
+    """
     await fetch_one_or_404(
         session,
         select(Incident).where(Incident.incident_id == incident_id),
@@ -517,51 +525,6 @@ async def get_resource_planning(
         availability=availability,
         gaps=sorted(gaps, key=lambda item: item.vehicle_type.code),
     )
-
-
-@router.get(
-    "/incidents/{incident_id}/vehicles-to-send",
-    response_model=list[VehicleRead],
-)
-async def list_vehicles_to_send(
-    incident_id: UUID, session: AsyncSession = Depends(get_postgres_session)
-) -> list[Vehicle]:
-    await fetch_one_or_404(
-        session,
-        select(Incident).where(Incident.incident_id == incident_id),
-        "Incident not found",
-    )
-
-    qg_service = QGService(session)
-    phase_type_ids = await qg_service.get_active_phase_type_ids(incident_id)
-    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
-    required_by_type, _ = QGService.aggregate_requirements(groups)
-
-    if not required_by_type:
-        return []
-
-    active_assignments = select(VehicleAssignment.vehicle_id).where(
-        VehicleAssignment.unassigned_at.is_(None)
-    )
-    vehicles_result = await session.execute(
-        select(Vehicle)
-        .where(
-            Vehicle.vehicle_type_id.in_(list(required_by_type.keys())),
-            ~Vehicle.vehicle_id.in_(active_assignments),
-        )
-        .order_by(Vehicle.immatriculation)
-    )
-    available = vehicles_result.scalars().all()
-
-    available_by_type: dict[UUID, list[Vehicle]] = {}
-    for vehicle in available:
-        available_by_type.setdefault(vehicle.vehicle_type_id, []).append(vehicle)
-
-    selected: list[Vehicle] = []
-    for vehicle_type_id, needed in required_by_type.items():
-        selected.extend(available_by_type.get(vehicle_type_id, [])[:needed])
-
-    return selected
 
 
 @router.get(

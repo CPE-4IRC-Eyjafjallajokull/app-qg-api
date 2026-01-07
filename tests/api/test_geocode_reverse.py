@@ -4,7 +4,7 @@ Tests pour l'endpoint /geo/address/reverse.
 
 import pytest
 
-import app.api.routes.geocode as geocode_routes
+import app.api.routes.geo.geocode as geocode_routes
 from app.services.geocoding.nominatim import NominatimReverseGeocoder
 
 

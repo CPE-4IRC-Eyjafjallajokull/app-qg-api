@@ -1,6 +1,6 @@
 # app-qg-api
 
-API FastAPI sécurisée avec middleware Keycloak, connecteurs async pour PostgreSQL et RabbitMQ, logging JSON via structlog, et flux SSE `/events` pour les notifications temps réel.
+API FastAPI sécurisée avec middleware Keycloak, connecteurs async pour PostgreSQL et RabbitMQ, logging JSON via structlog, et flux SSE `/qg/live` pour les notifications temps réel.
 
 ## Structure du projet
 
@@ -12,7 +12,7 @@ src/app/
 │   └── logging.py       # Configuration structlog
 ├── api/
 │   ├── dependencies.py  # Dépendances FastAPI
-│   └── routes/          # Routes HTTP (/health, /events)
+│   └── routes/          # Routes HTTP (/health, /qg/live)
 ├── models/              # Modèles de données
 └── services/
     ├── db/              # MongoDB (motor) + Postgres (SQLAlchemy async)
@@ -59,7 +59,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ## 🔐 Auth Keycloak
 
-- Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/events`). La route `/health` et la doc (`/docs`) restent publiques.
+- Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/qg/live`). La route `/health` et la doc (`/docs`) restent publiques.
 - Configuration minimale :
 
 ```env
@@ -136,7 +136,7 @@ docker run -p 8000:8000 app-qg-api
 curl http://localhost:8000/health
 
 # Tester le flux SSE
-curl -N -H "Authorization: Bearer <token>" http://localhost:8000/events
+curl -N -H "Authorization: Bearer <token>" http://localhost:8000/qg/live
 
 # Lancer les tests
 uv run pytest
@@ -183,7 +183,7 @@ Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 
 - Les queues utilisées sont déclarées dans `app/services/messaging/queues.py` (`SUB_QUEUES` pour la consommation, `PUB_QUEUES` pour la publication).
 - L'API consomme toutes les queues listées dans `SUB_QUEUES` et route les messages selon le champ JSON `event`.
-- Les événements connus sont listés dans `app/services/events/events.py`.
+- Les événements connus sont listés dans `app/services/qg/live/qg/live.py`.
 - Le corps attendu pour chaque message est un objet JSON du type `{"event": "<nom>", "payload": {...}}`. Les événements inconnus sont simplement journalisés.
 
 ---

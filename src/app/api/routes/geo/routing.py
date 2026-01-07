@@ -7,7 +7,7 @@ from app.core.logging import get_logger
 from app.schemas.routing import RouteRequest, RouteResponse
 from app.services.routing import RoutingError, osrm_router
 
-router = APIRouter(prefix="/route", tags=["route"])
+router = APIRouter(prefix="/route")
 log = get_logger(__name__)
 
 
