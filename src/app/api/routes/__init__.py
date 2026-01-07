@@ -8,12 +8,14 @@ from app.api.routes.incidents import router as incidents_router
 from app.api.routes.interest_points import router as interest_points_router
 from app.api.routes.operators import router as operators_router
 from app.api.routes.qg import router as qg_router
+from app.api.routes.terrain import router as terrain_router
 from app.api.routes.vehicles import router as vehicles_router
 
 router = APIRouter()
 
 router.include_router(geo_router, dependencies=[Depends(authorize_request)])
 router.include_router(qg_router, dependencies=[Depends(authorize_request)])
+router.include_router(terrain_router, dependencies=[Depends(authorize_request)])
 router.include_router(incidents_router, dependencies=[Depends(authorize_request)])
 router.include_router(operators_router, dependencies=[Depends(authorize_request)])
 router.include_router(casualties_router, dependencies=[Depends(authorize_request)])
