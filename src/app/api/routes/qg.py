@@ -76,9 +76,9 @@ from app.schemas.qg.situation import (
 from app.schemas.qg.vehicles import (
     QGVehiclePosition,
     QGVehiclePositionRead,
+    QGVehiclesListRead,
     QGVehicleStatusRead,
     QGVehicleStatusUpdate,
-    QGVehiclesListRead,
 )
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
