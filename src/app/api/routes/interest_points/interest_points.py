@@ -32,7 +32,7 @@ async def create_interest_point(
 
 @router.get("/", response_model=list[InterestPointRead])
 async def list_interest_points(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     city: str | None = Query(None),
     zipcode: str | None = Query(None),

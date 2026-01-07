@@ -25,7 +25,7 @@ async def create_operator(
 
 @router.get("", response_model=list[OperatorRead])
 async def list_operators(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     email: str | None = Query(None),
     session: AsyncSession = Depends(get_postgres_session),

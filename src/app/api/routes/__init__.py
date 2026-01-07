@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import authorize_request
+from app.api.routes.assignment_proposals import router as assignment_proposals_router
 from app.api.routes.casualties import router as casualties_router
 from app.api.routes.geo import router as geo_router
 from app.api.routes.health import router as health_router
@@ -17,6 +18,9 @@ router.include_router(geo_router, dependencies=[Depends(authorize_request)])
 router.include_router(qg_router, dependencies=[Depends(authorize_request)])
 router.include_router(terrain_router, dependencies=[Depends(authorize_request)])
 router.include_router(incidents_router, dependencies=[Depends(authorize_request)])
+router.include_router(
+    assignment_proposals_router, dependencies=[Depends(authorize_request)]
+)
 router.include_router(operators_router, dependencies=[Depends(authorize_request)])
 router.include_router(casualties_router, dependencies=[Depends(authorize_request)])
 router.include_router(

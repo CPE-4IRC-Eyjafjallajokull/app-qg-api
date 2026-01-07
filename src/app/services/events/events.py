@@ -7,6 +7,7 @@ class Event(StrEnum):
     NEW_INCIDENT = "new_incident"
     INCIDENT_ACK = "incident_ack"
     VEHICLE_ASSIGNMENT_PROPOSAL = "vehicle_assignment_proposal"
+    VEHICLE_ASSIGNMENT = "vehicle_assignment"
     VEHICLE_POSITION_UPDATE = "vehicle_position_update"
     VEHICLE_STATUS_UPDATE = "vehicle_status_update"
 

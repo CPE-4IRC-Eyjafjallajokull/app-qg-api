@@ -38,7 +38,7 @@ async def create_incident(
 
 @router.get("", response_model=list[IncidentRead])
 async def list_incidents(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     created_by_operator_id: UUID | None = Query(None),
     city: str | None = Query(None),

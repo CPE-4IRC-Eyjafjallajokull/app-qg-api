@@ -31,7 +31,9 @@ async def lifespan(app: FastAPI):
         queue_overflow_strategy=settings.app.events_queue_overflow_strategy,
     )
     app.state.subscriptions = ApplicationSubscriptions(
-        app.state.rabbitmq, app.state.sse
+        app.state.rabbitmq,
+        app.state.postgres,
+        app.state.sse,
     )
 
     await app.state.postgres.connect()

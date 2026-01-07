@@ -25,7 +25,7 @@ async def create_vehicle(
 
 @router.get("/", response_model=list[VehicleRead])
 async def list_vehicles(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     vehicle_type_id: UUID | None = Query(None),
     status_id: UUID | None = Query(None),

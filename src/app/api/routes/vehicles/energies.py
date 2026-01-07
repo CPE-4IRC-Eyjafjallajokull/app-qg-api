@@ -25,7 +25,7 @@ async def create_energy(
 
 @router.get("", response_model=list[EnergyRead])
 async def list_energies(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_postgres_session),
 ) -> list[Energy]:

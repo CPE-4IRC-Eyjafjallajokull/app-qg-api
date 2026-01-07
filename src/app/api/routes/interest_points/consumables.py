@@ -34,7 +34,7 @@ async def create_interest_point_consumable(
 
 @router.get("/consumables", response_model=list[InterestPointConsumableRead])
 async def list_interest_point_consumables(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     interest_point_id: UUID | None = Query(None),
     consumable_type_id: UUID | None = Query(None),

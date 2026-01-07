@@ -35,7 +35,7 @@ async def create_incident_phase_dependency(
 
 @router.get("", response_model=list[IncidentPhaseDependencyRead])
 async def list_incident_phase_dependencies(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     incident_phase_id: UUID | None = Query(None),
     depends_on_incident_phase_id: UUID | None = Query(None),

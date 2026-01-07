@@ -34,7 +34,7 @@ async def create_casualty_transport(
 
 @router.get("", response_model=list[CasualtyTransportRead])
 async def list_casualty_transports(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     casualty_id: UUID | None = Query(None),
     vehicle_assignment_id: UUID | None = Query(None),

@@ -20,6 +20,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from .assignment_proposals import (
+        VehicleAssignmentProposalItem,
+        VehicleAssignmentProposalMissing,
+    )
     from .casualties import CasualtyTransport
     from .consumables import VehicleConsumableStock, VehicleTypeConsumableSpec
     from .incidents import IncidentPhase, PhaseTypeVehicleRequirement
@@ -88,6 +92,13 @@ class Vehicle(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    assignment_proposal_items: Mapped[list["VehicleAssignmentProposalItem"]] = (
+        relationship(
+            "VehicleAssignmentProposalItem",
+            back_populates="vehicle",
+            passive_deletes=True,
+        )
+    )
     consumable_stocks: Mapped[list["VehicleConsumableStock"]] = relationship(
         "VehicleConsumableStock",
         back_populates="vehicle",
@@ -131,6 +142,13 @@ class VehicleType(Base):
         "PhaseTypeVehicleRequirement",
         back_populates="vehicle_type",
         passive_deletes=True,
+    )
+    assignment_proposal_missing: Mapped[list["VehicleAssignmentProposalMissing"]] = (
+        relationship(
+            "VehicleAssignmentProposalMissing",
+            back_populates="vehicle_type",
+            passive_deletes=True,
+        )
     )
 
 

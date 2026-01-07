@@ -32,7 +32,7 @@ async def create_casualty(
 
 @router.get("", response_model=list[CasualtyRead])
 async def list_casualties(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     incident_phase_id: UUID | None = Query(None),
     casualty_type_id: UUID | None = Query(None),

@@ -31,7 +31,7 @@ async def create_incident_phase(
 
 @router.get("", response_model=list[IncidentPhaseRead])
 async def list_incident_phases(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     incident_id: UUID | None = Query(None),
     phase_type_id: UUID | None = Query(None),

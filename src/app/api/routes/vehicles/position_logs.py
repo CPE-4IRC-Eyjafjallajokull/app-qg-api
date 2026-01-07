@@ -29,7 +29,7 @@ async def create_vehicle_position_log(
 
 @router.get("", response_model=list[VehiclePositionLogRead])
 async def list_vehicle_position_logs(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     vehicle_id: UUID | None = Query(None),
     session: AsyncSession = Depends(get_postgres_session),

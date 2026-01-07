@@ -33,7 +33,7 @@ async def create_vehicle_status(
 
 @router.get("", response_model=list[VehicleStatusRead])
 async def list_vehicle_statuses(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_postgres_session),
 ) -> list[VehicleStatus]:

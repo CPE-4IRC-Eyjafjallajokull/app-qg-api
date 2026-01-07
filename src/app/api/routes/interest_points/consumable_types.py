@@ -36,7 +36,7 @@ async def create_interest_point_consumable_type(
 
 @router.get("/consumable-types", response_model=list[InterestPointConsumableTypeRead])
 async def list_interest_point_consumable_types(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_postgres_session),
 ) -> list[InterestPointConsumableType]:

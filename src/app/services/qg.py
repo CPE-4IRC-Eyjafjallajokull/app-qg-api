@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.models import (
     Incident,
     IncidentPhase,
+    PhaseType,
     PhaseTypeVehicleRequirement,
     PhaseTypeVehicleRequirementGroup,
     VehicleType,
@@ -40,6 +41,18 @@ class QGService:
         )
         return [row[0] for row in phase_type_rows]
 
+    async def fetch_active_phase_types(
+        self, phase_type_ids: list[UUID]
+    ) -> list[PhaseType]:
+        """Récupère les objets PhaseType pour les IDs donnés."""
+        if not phase_type_ids:
+            return []
+
+        result = await self.session.execute(
+            select(PhaseType).where(PhaseType.phase_type_id.in_(phase_type_ids))
+        )
+        return list(result.scalars().all())
+
     async def fetch_requirement_groups(
         self, phase_type_ids: list[UUID]
     ) -> list[PhaseTypeVehicleRequirementGroup]:
@@ -57,7 +70,9 @@ class QGService:
             )
             .where(PhaseTypeVehicleRequirementGroup.phase_type_id.in_(phase_type_ids))
         )
-        return list(groups_result.scalars().all())
+
+        groups = list(groups_result.scalars().all())
+        return groups
 
     @staticmethod
     def aggregate_requirements(

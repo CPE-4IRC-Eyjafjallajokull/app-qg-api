@@ -49,7 +49,7 @@ async def create_vehicle_consumable_type(
     response_model=list[VehicleConsumableTypeRead],
 )
 async def list_vehicle_consumable_types(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_postgres_session),
 ) -> list[VehicleConsumableType]:
@@ -142,7 +142,7 @@ async def create_vehicle_consumable_stock(
     response_model=list[VehicleConsumableStockRead],
 )
 async def list_vehicle_consumable_stock(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     vehicle_id: UUID | None = Query(None),
     consumable_type_id: UUID | None = Query(None),
@@ -247,7 +247,7 @@ async def create_vehicle_type_consumable_spec(
     response_model=list[VehicleTypeConsumableSpecRead],
 )
 async def list_vehicle_type_consumable_specs(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     vehicle_type_id: UUID | None = Query(None),
     consumable_type_id: UUID | None = Query(None),

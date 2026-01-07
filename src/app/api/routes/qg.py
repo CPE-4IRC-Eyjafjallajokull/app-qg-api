@@ -30,14 +30,18 @@ from app.models import (
     PhaseType,
     Vehicle,
     VehicleAssignment,
+    VehicleAssignmentProposal,
+    VehicleAssignmentProposalItem,
     VehicleStatus,
     VehicleType,
 )
-from app.schemas.incidents import (
-    IncidentDeclarationCreate,
-    IncidentDeclarationRead,
-    IncidentPhaseRead,
-    IncidentRead,
+from app.schemas.incidents import IncidentDeclarationCreate, IncidentRead
+from app.schemas.qg.assignment_proposals import (
+    QGAssignmentProposalRead,
+    QGAssignmentProposalsListRead,
+    QGProposalItem,
+    QGRejectProposalResponse,
+    QGValidateProposalResponse,
 )
 from app.schemas.qg.casualties import (
     QGCasualtiesRead,
@@ -53,6 +57,7 @@ from app.schemas.qg.engagements import (
     QGIncidentEngagementsRead,
     QGVehicleAssignmentDetail,
 )
+from app.schemas.qg.incidents import QGIncidentRead
 from app.schemas.qg.resource_planning import (
     QGPhaseRequirements,
     QGRequirement,
@@ -121,7 +126,7 @@ async def qg_livestream(
 
 @router.post(
     "/incidents/new",
-    response_model=IncidentDeclarationRead,
+    response_model=QGIncidentRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def declare_incident(
@@ -130,7 +135,7 @@ async def declare_incident(
     user: AuthenticatedUser = Depends(get_current_user),
     sse_manager: SSEManager = Depends(get_sse_manager),
     rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
-) -> IncidentDeclarationRead:
+) -> QGIncidentRead:
     await fetch_one_or_404(
         session,
         select(PhaseType).where(PhaseType.phase_type_id == payload.phase.phase_type_id),
@@ -167,28 +172,21 @@ async def declare_incident(
     session.add(phase)
     await session.commit()
 
-    # Reload with relationships
+    # Reload incident with phases relationship
     incident = await session.scalar(
-        select(Incident).where(Incident.incident_id == incident.incident_id)
-    )
-    phase = await session.scalar(
-        select(IncidentPhase)
-        .where(IncidentPhase.incident_phase_id == phase.incident_phase_id)
-        .options(
-            selectinload(IncidentPhase.phase_type), selectinload(IncidentPhase.incident)
-        )
+        select(Incident)
+        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .where(Incident.incident_id == incident.incident_id)
     )
 
-    response = IncidentDeclarationRead(
-        incident=IncidentRead.model_validate(incident),
-        initial_phase=IncidentPhaseRead.model_validate(phase),
-    )
+    response = QGIncidentRead.model_validate(incident)
     declared_by = user.username or user.subject
+    incident_payload = response.model_dump()
+
     envelope = {
         "event": Event.NEW_INCIDENT.value,
         "payload": {
-            "incident": response.incident.model_dump(),
-            "initial_phase": response.initial_phase.model_dump(),
+            "incident": incident_payload,
             "declared_by": declared_by,
             "status": "created",
         },
@@ -207,8 +205,7 @@ async def declare_incident(
     await sse_manager.notify(
         Event.NEW_INCIDENT.value,
         {
-            "incident": response.incident.model_dump(),
-            "initial_phase": response.initial_phase.model_dump(),
+            "incident": incident_payload,
             "declared_by": declared_by,
         },
     )
@@ -289,6 +286,8 @@ async def get_incident_situation(
     for assignment in assignments:
         vehicle = assignment.vehicle
         if not vehicle or not vehicle.vehicle_type:
+            continue
+        if assignment.unassigned_at is not None:
             continue
         vehicle_type = vehicle.vehicle_type
         entry = by_type_map.get(vehicle_type.vehicle_type_id)
@@ -376,22 +375,27 @@ async def get_resource_planning(
 
     qg_service = QGService(session)
     phase_type_ids = await qg_service.get_active_phase_type_ids(incident_id)
-    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
 
+    # Récupérer tous les PhaseType actifs pour initialiser la map
+    active_phase_types = await qg_service.fetch_active_phase_types(phase_type_ids)
+
+    # Initialiser phase_requirements_map avec toutes les phases actives
     phase_requirements_map: dict[UUID, QGPhaseRequirements] = {}
+    for phase_type in active_phase_types:
+        phase_requirements_map[phase_type.phase_type_id] = QGPhaseRequirements(
+            phase_type=QGPhaseTypeRef(
+                phase_type_id=phase_type.phase_type_id,
+                code=phase_type.code,
+                label=phase_type.label,
+            ),
+            groups=[],
+        )
+
+    # Récupérer et ajouter les groupes de besoins
+    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
     for group in groups:
         phase_type = group.phase_type
         phase_entry = phase_requirements_map.get(phase_type.phase_type_id)
-        if phase_entry is None:
-            phase_entry = QGPhaseRequirements(
-                phase_type=QGPhaseTypeRef(
-                    phase_type_id=phase_type.phase_type_id,
-                    code=phase_type.code,
-                    label=phase_type.label,
-                ),
-                groups=[],
-            )
-            phase_requirements_map[phase_type.phase_type_id] = phase_entry
 
         requirements = [
             QGRequirement(
@@ -408,24 +412,25 @@ async def get_resource_planning(
             for requirement in group.requirements
         ]
 
-        phase_entry.groups.append(
-            QGRequirementGroup(
-                group_id=group.group_id,
-                label=group.label,
-                rule=group.rule,
-                min_total=group.min_total,
-                max_total=group.max_total,
-                priority=group.priority,
-                is_hard=group.is_hard,
-                requirements=sorted(
-                    requirements,
-                    key=lambda req: (
-                        req.preference_rank is None,
-                        req.preference_rank or 0,
+        if phase_entry:
+            phase_entry.groups.append(
+                QGRequirementGroup(
+                    group_id=group.group_id,
+                    label=group.label,
+                    rule=group.rule,
+                    min_total=group.min_total,
+                    max_total=group.max_total,
+                    priority=group.priority,
+                    is_hard=group.is_hard,
+                    requirements=sorted(
+                        requirements,
+                        key=lambda req: (
+                            req.preference_rank is None,
+                            req.preference_rank or 0,
+                        ),
                     ),
-                ),
+                )
             )
-        )
 
     for phase_entry in phase_requirements_map.values():
         phase_entry.groups.sort(
@@ -575,6 +580,8 @@ async def list_incident_engagements(
                 vehicle_id=assignment.vehicle_id,
                 incident_phase_id=assignment.incident_phase_id,
                 assigned_at=assignment.assigned_at,
+                validated_at=assignment.validated_at,
+                validated_by_operator_id=assignment.validated_by_operator_id,
                 unassigned_at=assignment.unassigned_at,
                 assigned_by_operator_id=assignment.assigned_by_operator_id,
                 vehicle=QGVehicleSummary(
@@ -697,6 +704,53 @@ async def list_incident_casualties(
         casualties=casualty_details,
         stats=stats,
     )
+
+
+@router.get(
+    "/incidents/{incident_id}",
+    response_model=QGIncidentRead,
+)
+async def get_incident_details(
+    incident_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGIncidentRead:
+    incident = await fetch_one_or_404(
+        session,
+        select(Incident)
+        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .where(Incident.incident_id == incident_id),
+        "Incident not found",
+    )
+
+    # Sort phases by priority (descending) before serialization
+    incident.phases = sorted(
+        incident.phases, key=lambda phase: phase.priority or 0, reverse=True
+    )
+
+    return QGIncidentRead.model_validate(incident)
+
+
+@router.get(
+    "/incidents",
+    response_model=list[QGIncidentRead],
+)
+async def list_incidents(
+    session: AsyncSession = Depends(get_postgres_session),
+) -> list[QGIncidentRead]:
+    incidents_result = await session.execute(
+        select(Incident)
+        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .order_by(Incident.created_at.desc())
+    )
+    incidents = incidents_result.scalars().all()
+
+    # Sort phases by priority for each incident before serialization
+    for incident in incidents:
+        incident.phases = sorted(
+            incident.phases, key=lambda phase: phase.priority or 0, reverse=True
+        )
+
+    return [QGIncidentRead.model_validate(incident) for incident in incidents]
 
 
 @router.get(
@@ -842,3 +896,239 @@ async def update_vehicle_status(
     )
 
     return response
+
+
+@router.get(
+    "/assignment-proposals",
+    response_model=QGAssignmentProposalsListRead,
+)
+async def list_assignment_proposals(
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGAssignmentProposalsListRead:
+    """
+    Liste toutes les propositions d'affectation de véhicules.
+
+    Retourne les propositions générées par le moteur SDMIS, sans les géométries de route.
+    """
+    proposals_result = await session.execute(
+        select(VehicleAssignmentProposal)
+        .options(
+            selectinload(VehicleAssignmentProposal.items),
+            selectinload(VehicleAssignmentProposal.missing),
+        )
+        .order_by(VehicleAssignmentProposal.generated_at.desc())
+    )
+    proposals = proposals_result.scalars().all()
+
+    assignment_proposals = [
+        QGAssignmentProposalRead(
+            proposal_id=proposal.proposal_id,
+            incident_id=proposal.incident_id,
+            generated_at=proposal.generated_at,
+            validated_at=proposal.validated_at,
+            rejected_at=proposal.rejected_at,
+            proposals=[
+                QGProposalItem(
+                    incident_phase_id=item.incident_phase_id,
+                    vehicle_id=item.vehicle_id,
+                    distance_km=item.distance_km,
+                    estimated_time_min=item.estimated_time_min,
+                    energy_level=item.energy_level,
+                    score=item.score,
+                    rationale=item.rationale,
+                )
+                for item in proposal.items
+            ],
+            missing_by_vehicle_type={
+                missing.vehicle_type_id: missing.missing_quantity
+                for missing in proposal.missing
+            },
+        )
+        for proposal in proposals
+    ]
+
+    return QGAssignmentProposalsListRead(
+        assignment_proposals=assignment_proposals,
+        total=len(assignment_proposals),
+    )
+
+
+@router.get(
+    "/assignment-proposals/{proposal_id}",
+    response_model=QGAssignmentProposalRead,
+)
+async def get_assignment_proposal(
+    proposal_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGAssignmentProposalRead:
+    """
+    Récupère le détail d'une proposition d'affectation.
+    """
+    proposal: VehicleAssignmentProposal = await fetch_one_or_404(
+        session,
+        select(VehicleAssignmentProposal)
+        .options(
+            selectinload(VehicleAssignmentProposal.items),
+            selectinload(VehicleAssignmentProposal.missing),
+        )
+        .where(VehicleAssignmentProposal.proposal_id == proposal_id),
+        "Proposal not found",
+    )
+
+    return QGAssignmentProposalRead(
+        proposal_id=proposal.proposal_id,
+        incident_id=proposal.incident_id,
+        generated_at=proposal.generated_at,
+        proposals=[
+            QGProposalItem(
+                incident_phase_id=item.incident_phase_id,
+                vehicle_id=item.vehicle_id,
+                distance_km=item.distance_km,
+                estimated_time_min=item.estimated_time_min,
+                energy_level=item.energy_level,
+                score=item.score,
+                rationale=item.rationale,
+            )
+            for item in proposal.items
+        ],
+        missing_by_vehicle_type={
+            missing.vehicle_type_id: missing.missing_quantity
+            for missing in proposal.missing
+        },
+    )
+
+
+@router.post(
+    "/assignment-proposals/{proposal_id}/validate",
+    response_model=QGValidateProposalResponse,
+)
+async def validate_assignment_proposal(
+    proposal_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+) -> QGValidateProposalResponse:
+    """
+    Valide une proposition d'affectation en créant les affectations pour tous les véhicules proposés.
+    """
+    proposal: VehicleAssignmentProposal = await fetch_one_or_404(
+        session,
+        select(VehicleAssignmentProposal)
+        .options(
+            selectinload(VehicleAssignmentProposal.items).selectinload(
+                VehicleAssignmentProposalItem.vehicle
+            ),
+            selectinload(VehicleAssignmentProposal.incident),
+        )
+        .where(VehicleAssignmentProposal.proposal_id == proposal_id),
+        "Proposal not found",
+    )
+
+    if proposal.validated_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Proposal already validated",
+        )
+
+    if proposal.rejected_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Proposal already rejected",
+        )
+
+    if not proposal.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No vehicles in proposal",
+        )
+
+    # Get operator ID from user
+    operator_id = None
+    if user.email:
+        operator = await session.scalar(
+            select(Operator).where(Operator.email == user.email)
+        )
+        if operator:
+            operator_id = operator.operator_id
+
+    # Mark proposal as validated
+    now = datetime.now(timezone.utc)
+    proposal.validated_at = now
+
+    # Create assignments for all vehicles in the proposal
+    for item in proposal.items:
+        assignment = VehicleAssignment(
+            vehicle_id=item.vehicle_id,
+            incident_phase_id=item.incident_phase_id,
+            assigned_at=now,
+            assigned_by_operator_id=operator_id,
+            validated_at=now,
+            validated_by_operator_id=operator_id,
+        )
+        session.add(assignment)
+
+    await session.commit()
+
+    # Send SSE event for each vehicle assignment
+    incident = proposal.incident
+    for item in proposal.items:
+        await sse_manager.notify(
+            Event.VEHICLE_ASSIGNMENT.value,
+            {
+                "immatriculation": item.vehicle.immatriculation,
+                "latitude": round(incident.latitude, 6),
+                "longitude": round(incident.longitude, 6),
+            },
+        )
+
+    return QGValidateProposalResponse(
+        proposal_id=proposal_id,
+        incident_id=proposal.incident_id,
+        validated_at=now,
+        assignments_created=len(proposal.items),
+    )
+
+
+@router.post(
+    "/assignment-proposals/{proposal_id}/reject",
+    response_model=QGRejectProposalResponse,
+)
+async def reject_assignment_proposal(
+    proposal_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> QGRejectProposalResponse:
+    """
+    Rejette une proposition d'affectation.
+    """
+    proposal: VehicleAssignmentProposal = await fetch_one_or_404(
+        session,
+        select(VehicleAssignmentProposal).where(
+            VehicleAssignmentProposal.proposal_id == proposal_id
+        ),
+        "Proposal not found",
+    )
+
+    if proposal.validated_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Proposal already validated",
+        )
+
+    if proposal.rejected_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Proposal already rejected",
+        )
+
+    # Mark proposal as rejected
+    now = datetime.now(timezone.utc)
+    proposal.rejected_at = now
+
+    await session.commit()
+
+    return QGRejectProposalResponse(
+        proposal_id=proposal_id,
+        incident_id=proposal.incident_id,
+        rejected_at=now,
+    )

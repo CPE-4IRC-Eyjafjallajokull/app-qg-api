@@ -23,6 +23,11 @@ from app.models.base import Base, CreatedAtMixin, TimestampMixin
 from app.models.enums import IncidentPhaseDependencyKind, VehicleRequirementRule
 
 if TYPE_CHECKING:
+    from .assignment_proposals import (
+        VehicleAssignmentProposal,
+        VehicleAssignmentProposalItem,
+        VehicleAssignmentProposalMissing,
+    )
     from .casualties import Casualty
     from .operators import Operator
     from .vehicles import VehicleAssignment, VehicleType
@@ -56,6 +61,12 @@ class Incident(Base, TimestampMixin):
 
     created_by: Mapped[Optional["Operator"]] = relationship(
         "Operator", back_populates="incidents_created"
+    )
+    assignment_proposals: Mapped[list["VehicleAssignmentProposal"]] = relationship(
+        "VehicleAssignmentProposal",
+        back_populates="incident",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     phases: Mapped[list["IncidentPhase"]] = relationship(
         "IncidentPhase",
@@ -179,6 +190,20 @@ class IncidentPhase(Base):
         "VehicleAssignment",
         back_populates="incident_phase",
         passive_deletes=True,
+    )
+    assignment_proposal_items: Mapped[list["VehicleAssignmentProposalItem"]] = (
+        relationship(
+            "VehicleAssignmentProposalItem",
+            back_populates="incident_phase",
+            passive_deletes=True,
+        )
+    )
+    assignment_proposal_missing: Mapped[list["VehicleAssignmentProposalMissing"]] = (
+        relationship(
+            "VehicleAssignmentProposalMissing",
+            back_populates="incident_phase",
+            passive_deletes=True,
+        )
     )
 
 

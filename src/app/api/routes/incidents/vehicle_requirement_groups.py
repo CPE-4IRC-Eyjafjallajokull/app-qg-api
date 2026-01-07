@@ -34,7 +34,7 @@ async def create_vehicle_requirement_group(
 
 @router.get("", response_model=list[PhaseTypeVehicleRequirementGroupRead])
 async def list_vehicle_requirement_groups(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
     offset: int = Query(0, ge=0),
     phase_type_id: UUID | None = Query(None),
     session: AsyncSession = Depends(get_postgres_session),
