@@ -30,6 +30,7 @@ from app.models import (
     PhaseType,
     Vehicle,
     VehicleAssignment,
+    VehicleStatus,
     VehicleType,
 )
 from app.schemas.incidents import (
@@ -75,6 +76,8 @@ from app.schemas.qg.situation import (
 from app.schemas.qg.vehicles import (
     QGVehiclePosition,
     QGVehiclePositionRead,
+    QGVehicleStatusRead,
+    QGVehicleStatusUpdate,
     QGVehiclesListRead,
 )
 from app.services.events import Event, SSEManager
@@ -776,6 +779,67 @@ async def update_vehicle_position(
             "timestamp": vehicle_position.timestamp.isoformat()
             if vehicle_position.timestamp
             else None,
+        },
+    )
+
+    return response
+
+
+@router.post(
+    "/vehicles/{vehicle_immatriculation}/status",
+    response_model=QGVehicleStatusRead,
+)
+async def update_vehicle_status(
+    vehicle_immatriculation: str,
+    payload: QGVehicleStatusUpdate,
+    session: AsyncSession = Depends(get_postgres_session),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+) -> QGVehicleStatusRead:
+    """
+    Met à jour le statut d'un véhicule identifié par son immatriculation.
+
+    Si le véhicule n'existe pas, une erreur 404 est retournée.
+    Si le statut n'existe pas, une erreur 404 est retournée.
+    """
+    vehicle: Vehicle = await fetch_one_or_404(
+        session,
+        select(Vehicle).where(Vehicle.immatriculation == vehicle_immatriculation),
+        "Vehicle not found",
+    )
+
+    # Récupérer le statut par son label
+    vehicle_status_record: VehicleStatus = await fetch_one_or_404(
+        session,
+        select(VehicleStatus).where(VehicleStatus.label == payload.status_label),
+        f"Vehicle status '{payload.status_label}' not found",
+    )
+
+    vehicle_service = VehicleService(session)
+    try:
+        vehicle_status = await vehicle_service.update_vehicle_status(
+            vehicle, vehicle_status_record.vehicle_status_id
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+
+    timestamp = datetime.now(timezone.utc)
+
+    response = QGVehicleStatusRead(
+        vehicle_immatriculation=vehicle.immatriculation,
+        status_label=vehicle_status.label,
+        timestamp=timestamp,
+    )
+
+    await sse_manager.notify(
+        Event.VEHICLE_STATUS_UPDATE.value,
+        {
+            "vehicle_id": str(vehicle.vehicle_id),
+            "vehicle_immatriculation": vehicle.immatriculation,
+            "status_label": vehicle_status.label,
+            "timestamp": timestamp.isoformat(),
         },
     )
 

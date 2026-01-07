@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Vehicle, VehicleConsumableStock, VehiclePositionLog
+from app.models import Vehicle, VehicleConsumableStock, VehiclePositionLog, VehicleStatus
 from app.schemas.qg.vehicles import (
     QGActiveAssignment,
     QGBaseInterestPoint,
@@ -185,3 +185,17 @@ class VehicleService:
         await self.session.commit()
         await self.session.refresh(position)
         return position
+
+    async def update_vehicle_status(
+        self,
+        vehicle: Vehicle,
+        vehicle_status_id: UUID,
+    ) -> VehicleStatus:
+        """Met à jour le statut d'un véhicule."""
+        status = await self.session.get(VehicleStatus, vehicle_status_id)
+        if status is None:
+            raise ValueError("Vehicle status not found")
+        vehicle.status_id = vehicle_status_id
+        await self.session.commit()
+        await self.session.refresh(vehicle)
+        return status

@@ -90,6 +90,24 @@ class QGVehiclePositionRead(BaseModel):
     timestamp: datetime
 
 
+class QGVehicleStatusUpdate(BaseModel):
+    """Mise à jour du statut d'un véhicule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status_label: str
+
+
+class QGVehicleStatusRead(BaseModel):
+    """Lecture du statut actuel d'un véhicule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vehicle_immatriculation: str
+    status_label: str
+    timestamp: datetime
+
+
 class QGActiveAssignment(BaseModel):
     """Affectation active d'un véhicule."""
 
