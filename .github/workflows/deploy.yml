@@ -28,7 +28,7 @@ jobs:
     environment:
       name: PROD
       url: https://${{ vars.API_HOST }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -133,7 +133,7 @@ jobs:
             NOMINATIM_CACHE_ROUNDING_PRECISION=${NOMINATIM_CACHE_ROUNDING_PRECISION:-5}
 
             cd "$INSTALL_DIR"
-            
+
             # Pull latest image
             OWNER="$OWNER_LC" IMAGE_TAG="$TAG" docker compose -f compose.prod.yaml pull
 

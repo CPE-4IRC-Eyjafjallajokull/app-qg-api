@@ -7,6 +7,7 @@ Les tests de l'application sont configurés pour **ne pas nécessiter de service
 ## Services Mockés
 
 ### 1. Keycloak (Authentification)
+
 - **Configuration** : Un serveur Keycloak mocké est configuré dans `tests/conftest.py`
 - **Clés JWKS** : Générées en mémoire et stockées dans un fichier temporaire
 - **Tokens JWT** : Signés avec une clé privée de test
@@ -19,6 +20,7 @@ Les tests de l'application sont configurés pour **ne pas nécessiter de service
   ```
 
 ### 2. PostgreSQL
+
 - **Mock** : Fixture `autouse` dans `conftest.py`
 - **Méthodes mockées** :
   - `connect()` : AsyncMock
@@ -26,6 +28,7 @@ Les tests de l'application sont configurés pour **ne pas nécessiter de service
   - `get_session()` : AsyncMock
 
 ### 3. RabbitMQ
+
 - **Mock** : Fixture `autouse` dans `conftest.py`
 - **Méthodes mockées** :
   - `connect()` : AsyncMock
@@ -33,6 +36,7 @@ Les tests de l'application sont configurés pour **ne pas nécessiter de service
   - `get_connection()` : AsyncMock
 
 ### 4. Subscriptions (ApplicationSubscriptions)
+
 - **Mock** : Fixture `autouse` dans `conftest.py`
 - **Méthodes mockées** :
   - `start()` : AsyncMock
@@ -41,6 +45,7 @@ Les tests de l'application sont configurés pour **ne pas nécessiter de service
 ## Fixtures Disponibles
 
 ### `async_client`
+
 Client HTTP asynchrone pour tester les endpoints de l'API.
 
 ```python
@@ -51,6 +56,7 @@ async def test_health_endpoint(async_client):
 ```
 
 ### `auth_headers`
+
 En-têtes d'authentification avec un JWT valide et le rôle `tester`.
 
 ```python
@@ -61,6 +67,7 @@ async def test_protected_endpoint(async_client, auth_headers):
 ```
 
 ### `auth_headers_viewer`
+
 En-têtes d'authentification avec un JWT valide et le rôle `qg-viewer`.
 
 ```python
@@ -73,6 +80,7 @@ async def test_viewer_endpoint(async_client, auth_headers_viewer):
 ## Exécution des Tests
 
 ### En local
+
 ```bash
 # Tous les tests
 uv run pytest
@@ -85,7 +93,9 @@ uv run pytest --cov=src --cov-report=term-missing
 ```
 
 ### Dans la CI
+
 Les tests s'exécutent automatiquement via GitHub Actions sur :
+
 - Chaque push sur `main`
 - Chaque pull request vers `main`
 
@@ -112,9 +122,9 @@ async def test_geocode_endpoint(async_client, auth_headers_viewer, monkeypatch):
     # Mock du geocoder
     from app.api.routes import geocode as geocode_routes
     from app.services.geocoding.nominatim import NominatimReverseGeocoder
-    
+
     geocoder = NominatimReverseGeocoder()
-    
+
     async def fake_fetch(lat: float, lon: float) -> dict:
         return {
             "address": {"city": "Paris"},
@@ -122,15 +132,15 @@ async def test_geocode_endpoint(async_client, auth_headers_viewer, monkeypatch):
             "lat": lat,
             "lon": lon,
         }
-    
+
     monkeypatch.setattr(geocoder, "_fetch", fake_fetch)
     monkeypatch.setattr(geocode_routes, "_geocoder", geocoder)
-    
+
     response = await async_client.get(
         "/geo/address/reverse?lat=48.8566&lon=2.3522",
         headers={**auth_headers_viewer, "X-Forwarded-For": "1.2.3.4"}
     )
-    
+
     assert response.status_code == 200
 ```
 
@@ -139,6 +149,7 @@ async def test_geocode_endpoint(async_client, auth_headers_viewer, monkeypatch):
 La couverture de code est générée lors de l'exécution des tests et uploadée sur Codecov dans la CI.
 
 Pour voir la couverture localement :
+
 ```bash
 uv run pytest --cov=src --cov-report=html
 open htmlcov/index.html

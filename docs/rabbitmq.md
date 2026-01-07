@@ -25,6 +25,7 @@ async def publish_message(
 ```
 
 Basic consumer pattern (run in a background task or startup hook):
+
 ```python
 async def consume(conn: aio_pika.abc.AbstractRobustConnection):
     channel = await conn.channel()

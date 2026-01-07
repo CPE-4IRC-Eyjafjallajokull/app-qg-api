@@ -3,6 +3,7 @@
 ## Models
 
 SQLAlchemy ORM models are defined in `src/app/models/`:
+
 - `user.py` - User model with authentication fields
 - `article.py` - Article model with foreign key to User
 
@@ -47,11 +48,13 @@ articles = result.scalars().all()
 ## Database Initialization
 
 Create all tables:
+
 ```bash
 python -m app.scripts.init_db
 ```
 
 Drop all tables (careful!):
+
 ```bash
 python -m app.scripts.init_db drop
 ```

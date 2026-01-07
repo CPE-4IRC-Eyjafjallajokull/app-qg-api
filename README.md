@@ -148,34 +148,34 @@ uv run pytest
 
 Variables d'environnement (fichier `.env` supporté, préfixes par domaine) :
 
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `APP_NAME` | Nom du service | `app-qg-api` |
-| `APP_VERSION` | Version exposée | `latest` |
-| `APP_ENVIRONMENT` | Environnement courant | `local` |
-| `APP_DEBUG` | Mode debug | `false` |
-| `APP_LOG_LEVEL` | Niveau de log | `INFO` |
-| `APP_LOG_FORMAT` | Format des logs (`json` ou `console`) | `json` |
-| `APP_CORS_ORIGINS` | Origines autorisées (CSV) | `*` |
-| `APP_EVENTS_PING_INTERVAL_SECONDS` | Intervalle keepalive SSE | `25` |
-| `APP_EVENTS_QUEUE_SIZE` | Taille de la file SSE par client | `100` |
-| `APP_EVENTS_QUEUE_OVERFLOW_STRATEGY` | Stratégie queue SSE (`drop_newest`, `drop_oldest`, `block`) | `drop_newest` |
-| `POSTGRES_DSN` | URI PostgreSQL | `postgresql+asyncpg://postgres:postgres@localhost:5432/app` |
-| `RABBITMQ_DSN` | URI RabbitMQ | `amqp://guest:guest@localhost:5672/` |
-| `AUTH_DISABLED` | Désactiver l'auth (local/tests) | `false` |
-| `KEYCLOAK_SERVER_URL` | URL de Keycloak | `http://localhost:8080` |
-| `KEYCLOAK_REALM` | Nom du realm | `master` |
-| `KEYCLOAK_CLIENT_ID` | Client ID | `app-qg-api` |
-| `KEYCLOAK_AUDIENCE` | Audience attendue (optionnel) | `KEYCLOAK_CLIENT_ID` |
-| `KEYCLOAK_CACHE_TTL_SECONDS` | Cache JWKS (s) | `300` |
-| `KEYCLOAK_TIMEOUT_SECONDS` | Timeout HTTP pour Keycloak (s) | `3.0` |
-| `NOMINATIM_BASE_URL` | URL de Nominatim | `https://nominatim.openstreetmap.org` |
-| `NOMINATIM_TIMEOUT_SECONDS` | Timeout HTTP Nominatim (s) | `4.0` |
-| `NOMINATIM_USER_AGENT` | User-Agent explicite (recommandé) | `null` |
-| `NOMINATIM_ACCEPT_LANGUAGE` | Langue préférée | `fr` |
-| `NOMINATIM_CACHE_TTL_SECONDS` | TTL cache reverse-geocode (s) | `600` |
-| `NOMINATIM_THROTTLE_SECONDS` | Throttle par IP (s) | `1.0` |
-| `NOMINATIM_CACHE_ROUNDING_PRECISION` | Décimales pour la clé cache | `5` |
+| Variable                             | Description                                                 | Défaut                                                      |
+| ------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| `APP_NAME`                           | Nom du service                                              | `app-qg-api`                                                |
+| `APP_VERSION`                        | Version exposée                                             | `latest`                                                    |
+| `APP_ENVIRONMENT`                    | Environnement courant                                       | `local`                                                     |
+| `APP_DEBUG`                          | Mode debug                                                  | `false`                                                     |
+| `APP_LOG_LEVEL`                      | Niveau de log                                               | `INFO`                                                      |
+| `APP_LOG_FORMAT`                     | Format des logs (`json` ou `console`)                       | `json`                                                      |
+| `APP_CORS_ORIGINS`                   | Origines autorisées (CSV)                                   | `*`                                                         |
+| `APP_EVENTS_PING_INTERVAL_SECONDS`   | Intervalle keepalive SSE                                    | `25`                                                        |
+| `APP_EVENTS_QUEUE_SIZE`              | Taille de la file SSE par client                            | `100`                                                       |
+| `APP_EVENTS_QUEUE_OVERFLOW_STRATEGY` | Stratégie queue SSE (`drop_newest`, `drop_oldest`, `block`) | `drop_newest`                                               |
+| `POSTGRES_DSN`                       | URI PostgreSQL                                              | `postgresql+asyncpg://postgres:postgres@localhost:5432/app` |
+| `RABBITMQ_DSN`                       | URI RabbitMQ                                                | `amqp://guest:guest@localhost:5672/`                        |
+| `AUTH_DISABLED`                      | Désactiver l'auth (local/tests)                             | `false`                                                     |
+| `KEYCLOAK_SERVER_URL`                | URL de Keycloak                                             | `http://localhost:8080`                                     |
+| `KEYCLOAK_REALM`                     | Nom du realm                                                | `master`                                                    |
+| `KEYCLOAK_CLIENT_ID`                 | Client ID                                                   | `app-qg-api`                                                |
+| `KEYCLOAK_AUDIENCE`                  | Audience attendue (optionnel)                               | `KEYCLOAK_CLIENT_ID`                                        |
+| `KEYCLOAK_CACHE_TTL_SECONDS`         | Cache JWKS (s)                                              | `300`                                                       |
+| `KEYCLOAK_TIMEOUT_SECONDS`           | Timeout HTTP pour Keycloak (s)                              | `3.0`                                                       |
+| `NOMINATIM_BASE_URL`                 | URL de Nominatim                                            | `https://nominatim.openstreetmap.org`                       |
+| `NOMINATIM_TIMEOUT_SECONDS`          | Timeout HTTP Nominatim (s)                                  | `4.0`                                                       |
+| `NOMINATIM_USER_AGENT`               | User-Agent explicite (recommandé)                           | `null`                                                      |
+| `NOMINATIM_ACCEPT_LANGUAGE`          | Langue préférée                                             | `fr`                                                        |
+| `NOMINATIM_CACHE_TTL_SECONDS`        | TTL cache reverse-geocode (s)                               | `600`                                                       |
+| `NOMINATIM_THROTTLE_SECONDS`         | Throttle par IP (s)                                         | `1.0`                                                       |
+| `NOMINATIM_CACHE_ROUNDING_PRECISION` | Décimales pour la clé cache                                 | `5`                                                         |
 
 ---
 
