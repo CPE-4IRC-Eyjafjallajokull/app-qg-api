@@ -1077,11 +1077,8 @@ async def validate_assignment_proposal(
             await asyncio.sleep(1)
 
             # Refresh vehicle to get current status
-            await session.refresh(item.vehicle, ["vehicle_status"])
-            if (
-                item.vehicle.vehicle_status
-                and item.vehicle.vehicle_status.label == "Engagé"
-            ):
+            await session.refresh(item.vehicle, ["status"])
+            if item.vehicle.status and item.vehicle.status.label == "Engagé":
                 vehicle_engaged = True
                 break
 
