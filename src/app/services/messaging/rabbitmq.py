@@ -125,8 +125,12 @@ class RabbitMQManager:
                         await callback(message)
                         await message.ack()
                     except Exception as e:
-                        log.error(
-                            "rabbitmq.message.error", error=str(e), queue=queue_name
+                        body_preview = message.body[:500].decode(errors="replace")
+                        log.exception(
+                            "rabbitmq.message.error",
+                            error=str(e),
+                            queue=queue_name,
+                            body_preview=body_preview,
                         )
                         await message.nack(requeue=True)
 
