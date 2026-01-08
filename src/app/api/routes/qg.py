@@ -1057,43 +1057,73 @@ async def validate_assignment_proposal(
 
     incident = proposal.incident
     max_attempts = 5
-
-    # Send assignments and wait for vehicles to be engaged
-    for item in proposal.items:
-        vehicle_engaged = False
-
-        for _attempt in range(max_attempts):
-            # Send assignment event
-            await sse_manager.notify(
-                Event.VEHICLE_ASSIGNMENT.value,
-                {
-                    "immatriculation": item.vehicle.immatriculation,
-                    "latitude": round(incident.latitude, 6),
-                    "longitude": round(incident.longitude, 6),
-                },
-            )
-
-            # Wait 1 second before checking status
-            await asyncio.sleep(1)
-
-            # Refresh vehicle to get current status
-            await session.refresh(item.vehicle, ["status"])
-            if item.vehicle.status and item.vehicle.status.label == "Engagé":
-                vehicle_engaged = True
-                break
-
-        if not vehicle_engaged:
-            raise HTTPException(
-                status_code=status.HTTP_408_REQUEST_TIMEOUT,
-                detail=f"Vehicle {item.vehicle.immatriculation} did not acknowledge assignment after {max_attempts} attempts",
-            )
-
-    # All vehicles are engaged, proceed with validation
     now = datetime.now(timezone.utc)
-    proposal.validated_at = now
 
-    # Create assignments for all vehicles in the proposal
+    # Track engaged vehicles and their assignments
+    engaged_vehicles: list[VehicleAssignmentProposalItem] = []
+    failed_vehicles: list[str] = []
+
+    # Send assignments to all vehicles first (broadcast)
     for item in proposal.items:
+        await sse_manager.notify(
+            Event.VEHICLE_ASSIGNMENT.value,
+            {
+                "immatriculation": item.vehicle.immatriculation,
+                "latitude": round(incident.latitude, 6),
+                "longitude": round(incident.longitude, 6),
+            },
+        )
+
+    # Wait and check status for all vehicles with retries
+    pending_items = list(proposal.items)
+
+    for attempt in range(max_attempts):
+        if not pending_items:
+            break
+
+        # Wait before checking (or retrying)
+        await asyncio.sleep(1)
+
+        still_pending = []
+        for item in pending_items:
+            # Expire the cached object to force a fresh read from DB
+            session.expire(item.vehicle)
+
+            # Fetch fresh vehicle status from database
+            fresh_vehicle = await session.scalar(
+                select(Vehicle)
+                .options(selectinload(Vehicle.status))
+                .where(Vehicle.vehicle_id == item.vehicle_id)
+            )
+
+            if (
+                fresh_vehicle
+                and fresh_vehicle.status
+                and fresh_vehicle.status.label == "Engagé"
+            ):
+                engaged_vehicles.append(item)
+            else:
+                still_pending.append(item)
+
+        pending_items = still_pending
+
+        # Re-send assignment to vehicles still pending (retry)
+        if pending_items and attempt < max_attempts - 1:
+            for item in pending_items:
+                await sse_manager.notify(
+                    Event.VEHICLE_ASSIGNMENT.value,
+                    {
+                        "immatriculation": item.vehicle.immatriculation,
+                        "latitude": round(incident.latitude, 6),
+                        "longitude": round(incident.longitude, 6),
+                    },
+                )
+
+    # Identify failed vehicles
+    failed_vehicles = [item.vehicle.immatriculation for item in pending_items]
+
+    # Create assignments for all engaged vehicles
+    for item in engaged_vehicles:
         assignment = VehicleAssignment(
             vehicle_id=item.vehicle_id,
             incident_phase_id=item.incident_phase_id,
@@ -1104,13 +1134,28 @@ async def validate_assignment_proposal(
         )
         session.add(assignment)
 
-    await session.commit()
+    # Mark proposal as validated if at least one vehicle was assigned
+    if engaged_vehicles:
+        proposal.validated_at = now
+        await session.commit()
+
+    # If some vehicles failed, return partial success or error
+    if failed_vehicles:
+        if not engaged_vehicles:
+            # No vehicles were engaged at all
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail=f"No vehicles acknowledged assignment after {max_attempts} attempts. Failed: {', '.join(failed_vehicles)}",
+            )
+        # Partial success - some vehicles engaged, some failed
+        # We still return success but could log or notify about failures
+        # TODO: Implement logging or notification for failed vehicles
 
     return QGValidateProposalResponse(
         proposal_id=proposal_id,
         incident_id=proposal.incident_id,
         validated_at=now,
-        assignments_created=len(proposal.items),
+        assignments_created=len(engaged_vehicles),
     )
 
 
