@@ -1010,6 +1010,10 @@ async def validate_assignment_proposal(
 ) -> QGValidateProposalResponse:
     """
     Valide une proposition d'affectation en créant les affectations pour tous les véhicules proposés.
+
+    Envoie les événements d'affectation aux véhicules et attend que leur statut passe à "Engagé".
+    Réessaie jusqu'à 5 fois avec 1 seconde d'intervalle. Si un véhicule ne passe pas en "Engagé",
+    l'affectation est annulée et une erreur est retournée.
     """
     proposal: VehicleAssignmentProposal = await fetch_one_or_404(
         session,
@@ -1051,7 +1055,43 @@ async def validate_assignment_proposal(
         if operator:
             operator_id = operator.operator_id
 
-    # Mark proposal as validated
+    incident = proposal.incident
+    max_attempts = 5
+
+    # Send assignments and wait for vehicles to be engaged
+    for item in proposal.items:
+        vehicle_engaged = False
+
+        for _attempt in range(max_attempts):
+            # Send assignment event
+            await sse_manager.notify(
+                Event.VEHICLE_ASSIGNMENT.value,
+                {
+                    "immatriculation": item.vehicle.immatriculation,
+                    "latitude": round(incident.latitude, 6),
+                    "longitude": round(incident.longitude, 6),
+                },
+            )
+
+            # Wait 1 second before checking status
+            await asyncio.sleep(1)
+
+            # Refresh vehicle to get current status
+            await session.refresh(item.vehicle, ["vehicle_status"])
+            if (
+                item.vehicle.vehicle_status
+                and item.vehicle.vehicle_status.label == "Engagé"
+            ):
+                vehicle_engaged = True
+                break
+
+        if not vehicle_engaged:
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail=f"Vehicle {item.vehicle.immatriculation} did not acknowledge assignment after {max_attempts} attempts",
+            )
+
+    # All vehicles are engaged, proceed with validation
     now = datetime.now(timezone.utc)
     proposal.validated_at = now
 
@@ -1068,18 +1108,6 @@ async def validate_assignment_proposal(
         session.add(assignment)
 
     await session.commit()
-
-    # Send SSE event for each vehicle assignment
-    incident = proposal.incident
-    for item in proposal.items:
-        await sse_manager.notify(
-            Event.VEHICLE_ASSIGNMENT.value,
-            {
-                "immatriculation": item.vehicle.immatriculation,
-                "latitude": round(incident.latitude, 6),
-                "longitude": round(incident.longitude, 6),
-            },
-        )
 
     return QGValidateProposalResponse(
         proposal_id=proposal_id,
