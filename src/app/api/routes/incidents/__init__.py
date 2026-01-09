@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_postgres_session
 from app.api.routes.incidents.phase import router as phase_router
 from app.api.routes.incidents.phases import router as phases_router
+from app.api.routes.incidents.reinforcement_vehicle_requests import (
+    router as reinforcement_vehicle_requests_router,
+)
+from app.api.routes.incidents.reinforcements import router as reinforcements_router
 from app.api.routes.incidents.vehicle_requirement_groups import (
     router as vehicle_requirement_groups_router,
 )
@@ -23,6 +27,8 @@ router.include_router(phases_router)
 router.include_router(phase_router)
 router.include_router(vehicle_requirement_groups_router)
 router.include_router(vehicle_requirements_router)
+router.include_router(reinforcements_router)
+router.include_router(reinforcement_vehicle_requests_router)
 
 
 @router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)

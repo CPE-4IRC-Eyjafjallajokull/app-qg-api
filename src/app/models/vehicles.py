@@ -26,7 +26,12 @@ if TYPE_CHECKING:
     )
     from .casualties import CasualtyTransport
     from .consumables import VehicleConsumableStock, VehicleTypeConsumableSpec
-    from .incidents import IncidentPhase, PhaseTypeVehicleRequirement
+    from .incidents import (
+        IncidentPhase,
+        PhaseTypeVehicleRequirement,
+        Reinforcement,
+        ReinforcementVehicleRequest,
+    )
     from .interest_points import InterestPoint
     from .operators import Operator
     from .vehicles import VehicleAssignment, VehicleType
@@ -150,6 +155,11 @@ class VehicleType(Base):
             passive_deletes=True,
         )
     )
+    reinforcement_requests: Mapped[list["ReinforcementVehicleRequest"]] = relationship(
+        "ReinforcementVehicleRequest",
+        back_populates="vehicle_type",
+        passive_deletes=True,
+    )
 
 
 class VehicleStatus(Base):
@@ -170,6 +180,7 @@ class VehicleAssignment(Base):
     __table_args__ = (
         Index("ix_vehicle_assignments_vehicle", "vehicle_id"),
         Index("ix_vehicle_assignments_incident_phase", "incident_phase_id"),
+        Index("ix_vehicle_assignments_reinforcement", "reinforcement_id"),
         Index(
             "uq_vehicle_active_assignment",
             "vehicle_id",
@@ -189,6 +200,11 @@ class VehicleAssignment(Base):
     incident_phase_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("incident_phases.incident_phase_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reinforcement_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("reinforcements.reinforcement_id", ondelete="SET NULL"),
         nullable=True,
     )
     assigned_at: Mapped[datetime] = mapped_column(
@@ -217,6 +233,9 @@ class VehicleAssignment(Base):
     )
     incident_phase: Mapped[Optional["IncidentPhase"]] = relationship(
         "IncidentPhase", back_populates="vehicle_assignments", passive_deletes=True
+    )
+    reinforcement: Mapped[Optional["Reinforcement"]] = relationship(
+        "Reinforcement", back_populates="vehicle_assignments", passive_deletes=True
     )
     assigned_by_operator: Mapped[Optional["Operator"]] = relationship(
         "Operator",

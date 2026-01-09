@@ -205,6 +205,12 @@ class IncidentPhase(Base):
             passive_deletes=True,
         )
     )
+    reinforcements: Mapped[list["Reinforcement"]] = relationship(
+        "Reinforcement",
+        back_populates="incident_phase",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class IncidentPhaseDependency(Base, CreatedAtMixin):
@@ -324,4 +330,68 @@ class PhaseTypeVehicleRequirement(Base, CreatedAtMixin):
     )
     vehicle_type: Mapped["VehicleType"] = relationship(
         "VehicleType", back_populates="requirement_entries"
+    )
+
+
+class Reinforcement(Base, CreatedAtMixin):
+    __tablename__ = "reinforcements"
+    __table_args__ = (Index("ix_reinforcements_incident_phase", "incident_phase_id"),)
+
+    reinforcement_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    incident_phase_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("incident_phases.incident_phase_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    validated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    rejected_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    incident_phase: Mapped[IncidentPhase] = relationship(
+        "IncidentPhase", back_populates="reinforcements", passive_deletes=True
+    )
+    vehicle_requests: Mapped[list["ReinforcementVehicleRequest"]] = relationship(
+        "ReinforcementVehicleRequest",
+        back_populates="reinforcement",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    vehicle_assignments: Mapped[list["VehicleAssignment"]] = relationship(
+        "VehicleAssignment",
+        back_populates="reinforcement",
+        passive_deletes=True,
+    )
+
+
+class ReinforcementVehicleRequest(Base):
+    __tablename__ = "reinforcement_vehicle_requests"
+    __table_args__ = (
+        Index("ix_reinforcement_vehicle_requests_reinforcement", "reinforcement_id"),
+        Index("ix_reinforcement_vehicle_requests_vehicle_type", "vehicle_type_id"),
+    )
+
+    reinforcement_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("reinforcements.reinforcement_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    vehicle_type_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicle_types.vehicle_type_id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    assigned_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    reinforcement: Mapped[Reinforcement] = relationship(
+        "Reinforcement", back_populates="vehicle_requests", passive_deletes=True
+    )
+    vehicle_type: Mapped["VehicleType"] = relationship(
+        "VehicleType", back_populates="reinforcement_requests"
     )

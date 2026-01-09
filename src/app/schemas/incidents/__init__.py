@@ -37,6 +37,16 @@ from app.schemas.incidents.phase_type_vehicle_requirement_group import (
     PhaseTypeVehicleRequirementGroupRead,
     PhaseTypeVehicleRequirementGroupUpdate,
 )
+from app.schemas.incidents.reinforcement import (
+    ReinforcementCreate,
+    ReinforcementRead,
+    ReinforcementUpdate,
+)
+from app.schemas.incidents.reinforcement_vehicle_request import (
+    ReinforcementVehicleRequestCreate,
+    ReinforcementVehicleRequestRead,
+    ReinforcementVehicleRequestUpdate,
+)
 
 __all__ = [
     "IncidentCreate",
@@ -62,4 +72,10 @@ __all__ = [
     "PhaseTypeVehicleRequirementGroupCreate",
     "PhaseTypeVehicleRequirementGroupRead",
     "PhaseTypeVehicleRequirementGroupUpdate",
+    "ReinforcementCreate",
+    "ReinforcementRead",
+    "ReinforcementUpdate",
+    "ReinforcementVehicleRequestCreate",
+    "ReinforcementVehicleRequestRead",
+    "ReinforcementVehicleRequestUpdate",
 ]

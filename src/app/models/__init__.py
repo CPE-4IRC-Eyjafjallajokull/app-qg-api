@@ -24,6 +24,8 @@ from app.models.incidents import (
     PhaseType,
     PhaseTypeVehicleRequirement,
     PhaseTypeVehicleRequirementGroup,
+    Reinforcement,
+    ReinforcementVehicleRequest,
 )
 from app.models.interest_points import (
     InterestPoint,
@@ -66,6 +68,8 @@ __all__ = [
     "PhaseType",
     "PhaseTypeVehicleRequirement",
     "PhaseTypeVehicleRequirementGroup",
+    "Reinforcement",
+    "ReinforcementVehicleRequest",
     "Vehicle",
     "VehicleAssignment",
     "VehicleConsumableStock",
