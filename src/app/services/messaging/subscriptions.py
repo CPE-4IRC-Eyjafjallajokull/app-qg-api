@@ -159,15 +159,24 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
                 )
 
             # Create missing entries (use single phase from proposals if available)
+            # Skip if no phase_id can be determined (PK requires non-null incident_phase_id)
             phase_id = self._infer_phase_id(data.proposals)
-            for vehicle_type_id, quantity in data.missing_by_vehicle_type.items():
-                session.add(
-                    VehicleAssignmentProposalMissing(
-                        proposal_id=data.proposal_id,
-                        incident_phase_id=phase_id,
-                        vehicle_type_id=vehicle_type_id,
-                        missing_quantity=quantity,
+            if phase_id is not None:
+                for vehicle_type_id, quantity in data.missing_by_vehicle_type.items():
+                    session.add(
+                        VehicleAssignmentProposalMissing(
+                            proposal_id=data.proposal_id,
+                            incident_phase_id=phase_id,
+                            vehicle_type_id=vehicle_type_id,
+                            missing_quantity=quantity,
+                        )
                     )
+            elif data.missing_by_vehicle_type:
+                log.warning(
+                    "subscription.assignment_proposal.missing_skipped",
+                    proposal_id=data.proposal_id,
+                    reason="no_single_phase_id",
+                    missing_count=len(data.missing_by_vehicle_type),
                 )
 
             try:

@@ -17,7 +17,6 @@ from sqlalchemy import (
     UniqueConstraint,
     desc,
     func,
-    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -172,21 +171,6 @@ class VehicleAssignmentProposalMissing(Base, CreatedAtMixin):
             "vehicle_type_id",
             name="pk_vehicle_assignment_proposal_missing",
         ),
-        Index(
-            "uq_vapm_global",
-            "proposal_id",
-            "vehicle_type_id",
-            unique=True,
-            postgresql_where=text("incident_phase_id IS NULL"),
-        ),
-        Index(
-            "uq_vapm_by_phase",
-            "proposal_id",
-            "incident_phase_id",
-            "vehicle_type_id",
-            unique=True,
-            postgresql_where=text("incident_phase_id IS NOT NULL"),
-        ),
         CheckConstraint(
             "missing_quantity >= 0", name="chk_vapm_missing_quantity_nonneg"
         ),
@@ -198,10 +182,10 @@ class VehicleAssignmentProposalMissing(Base, CreatedAtMixin):
         ForeignKey("vehicle_assignment_proposals.proposal_id", ondelete="CASCADE"),
         nullable=False,
     )
-    incident_phase_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    incident_phase_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("incident_phases.incident_phase_id", ondelete="CASCADE"),
-        nullable=True,
+        nullable=False,
     )
     vehicle_type_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -213,7 +197,7 @@ class VehicleAssignmentProposalMissing(Base, CreatedAtMixin):
     proposal: Mapped[VehicleAssignmentProposal] = relationship(
         "VehicleAssignmentProposal", back_populates="missing"
     )
-    incident_phase: Mapped[Optional["IncidentPhase"]] = relationship(
+    incident_phase: Mapped["IncidentPhase"] = relationship(
         "IncidentPhase",
         back_populates="assignment_proposal_missing",
         passive_deletes=True,

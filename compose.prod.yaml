@@ -29,6 +29,7 @@ services:
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
       - KEYCLOAK_SERVER_URL=${KEYCLOAK_SERVER_URL:-http://localhost:8080}
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-master}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-https://auth.mathislambert.fr/realms/master}
       - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-app-qg-api}
       - KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-app-qg-api}
       - KEYCLOAK_CACHE_TTL_SECONDS=${KEYCLOAK_CACHE_TTL_SECONDS:-300}

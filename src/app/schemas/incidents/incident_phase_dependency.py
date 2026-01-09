@@ -22,5 +22,4 @@ class IncidentPhaseDependencyUpdate(UpdateSchema):
 
 
 class IncidentPhaseDependencyRead(IncidentPhaseDependencyBase, ReadSchema):
-    id: UUID
     created_at: datetime
