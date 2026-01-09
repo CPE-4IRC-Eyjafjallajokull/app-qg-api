@@ -170,7 +170,12 @@ async def declare_incident(
     # Reload incident with phases relationship
     incident = await session.scalar(
         select(Incident)
-        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .options(
+            selectinload(Incident.phases).options(
+                selectinload(IncidentPhase.phase_type),
+                selectinload(IncidentPhase.vehicle_assignments),
+            )
+        )
         .where(Incident.incident_id == incident.incident_id)
     )
 
@@ -712,7 +717,12 @@ async def get_incident_details(
     incident = await fetch_one_or_404(
         session,
         select(Incident)
-        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .options(
+            selectinload(Incident.phases).options(
+                selectinload(IncidentPhase.phase_type),
+                selectinload(IncidentPhase.vehicle_assignments),
+            )
+        )
         .where(Incident.incident_id == incident_id),
         "Incident not found",
     )
