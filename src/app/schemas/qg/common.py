@@ -20,6 +20,19 @@ class QGPhaseTypeRef(BaseModel):
     label: str | None = None
 
 
+class QGVehicleAssignmentRef(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    vehicle_assignment_id: UUID
+    vehicle_id: UUID
+    incident_phase_id: UUID | None = None
+    assigned_at: datetime
+    assigned_by_operator_id: UUID | None = None
+    validated_at: datetime | None = None
+    validated_by_operator_id: UUID | None = None
+    unassigned_at: datetime | None = None
+
+
 class QGIncidentPhaseRef(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
@@ -28,6 +41,7 @@ class QGIncidentPhaseRef(BaseModel):
     priority: int
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    vehicle_assignments: list["QGVehicleAssignmentRef"] = []
 
 
 class QGVehicleSummary(BaseModel):

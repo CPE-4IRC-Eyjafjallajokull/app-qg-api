@@ -734,7 +734,12 @@ async def list_incidents(
 ) -> list[QGIncidentRead]:
     incidents_result = await session.execute(
         select(Incident)
-        .options(selectinload(Incident.phases).selectinload(IncidentPhase.phase_type))
+        .options(
+            selectinload(Incident.phases).options(
+                selectinload(IncidentPhase.phase_type),
+                selectinload(IncidentPhase.vehicle_assignments),
+            )
+        )
         .order_by(Incident.created_at.desc())
     )
     incidents = incidents_result.scalars().all()
