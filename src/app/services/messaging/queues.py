@@ -11,6 +11,9 @@ class Queue(Enum):
 
     SDMIS_API = ("sdmis_api", Direction.SUB)
     SDMIS_ENGINE = ("sdmis_engine", Direction.PUB)
+    VEHICLE_TELEMETRY = ("vehicle_telemetry", Direction.SUB)
+    VEHICLE_ASSIGNMENTS = ("vehicle_assignments", Direction.PUB)
+    INCIDENT_TELEMETRY = ("incident_telemetry", Direction.SUB)
 
     def __init__(self, queue: str, direction: Direction):
         self._queue = queue

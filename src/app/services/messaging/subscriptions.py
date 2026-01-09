@@ -23,6 +23,7 @@ from app.services.messaging.subscriber import (
     QueueEvent,
     RabbitMQSubscriptionService,
 )
+from app.services.messaging.telemetry_handler import TelemetryHandler
 
 log = get_logger(__name__)
 
@@ -62,11 +63,24 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
         super().__init__(rabbitmq, queues)
         self._sse_manager = sse_manager
         self._postgres = postgres
+        self._telemetry_handler = TelemetryHandler(postgres, sse_manager)
 
         # Register event handlers once at init time
         self.on(
             Event.VEHICLE_ASSIGNMENT_PROPOSAL.value,
             self._handle_vehicle_assignment_proposal,
+        )
+        self.on(
+            Event.VEHICLE_POSITION_UPDATE.value,
+            self._telemetry_handler.handle_vehicle_position_update,
+        )
+        self.on(
+            Event.VEHICLE_STATUS_UPDATE.value,
+            self._telemetry_handler.handle_vehicle_status_update,
+        )
+        self.on(
+            Event.INCIDENT_STATUS_UPDATE.value,
+            self._telemetry_handler.handle_incident_status_update,
         )
 
     async def _handle_vehicle_assignment_proposal(self, message: QueueEvent) -> None:

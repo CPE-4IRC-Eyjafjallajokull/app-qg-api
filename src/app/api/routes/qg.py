@@ -32,7 +32,6 @@ from app.models import (
     VehicleAssignment,
     VehicleAssignmentProposal,
     VehicleAssignmentProposalItem,
-    VehicleStatus,
     VehicleType,
 )
 from app.schemas.incidents import IncidentDeclarationCreate, IncidentRead
@@ -79,11 +78,7 @@ from app.schemas.qg.situation import (
     QGCasualtyStatusCount as QGSituationCasualtyStatusCount,
 )
 from app.schemas.qg.vehicles import (
-    QGVehiclePosition,
-    QGVehiclePositionRead,
     QGVehiclesListRead,
-    QGVehicleStatusRead,
-    QGVehicleStatusUpdate,
 )
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
@@ -790,114 +785,6 @@ async def list_all_vehicles(
     )
 
 
-@router.post(
-    "/vehicles/{vehicle_immatriculation}/position",
-    response_model=QGVehiclePositionRead,
-)
-async def update_vehicle_position(
-    vehicle_immatriculation: str,
-    payload: QGVehiclePosition,
-    session: AsyncSession = Depends(get_postgres_session),
-    sse_manager: SSEManager = Depends(get_sse_manager),
-) -> QGVehiclePositionRead:
-    """
-    Met à jour la position actuelle d'un véhicule identifié par son immatriculation.
-
-    Si le véhicule n'existe pas, une erreur 404 est retournée.
-    """
-    vehicle: Vehicle = await fetch_one_or_404(
-        session,
-        select(Vehicle).where(Vehicle.immatriculation == vehicle_immatriculation),
-        "Vehicle not found",
-    )
-
-    vehicle_service = VehicleService(session)
-    vehicle_position = await vehicle_service.create_vehicle_position(
-        vehicle.vehicle_id, payload.latitude, payload.longitude, payload.timestamp
-    )
-
-    response = QGVehiclePositionRead(
-        vehicle_immatriculation=vehicle.immatriculation,
-        latitude=vehicle_position.latitude,
-        longitude=vehicle_position.longitude,
-        timestamp=vehicle_position.timestamp,
-    )
-
-    await sse_manager.notify(
-        Event.VEHICLE_POSITION_UPDATE.value,
-        {
-            "vehicle_id": str(vehicle.vehicle_id),
-            "vehicle_immatriculation": vehicle.immatriculation,
-            "latitude": vehicle_position.latitude,
-            "longitude": vehicle_position.longitude,
-            "timestamp": vehicle_position.timestamp.isoformat()
-            if vehicle_position.timestamp
-            else None,
-        },
-    )
-
-    return response
-
-
-@router.post(
-    "/vehicles/{vehicle_immatriculation}/status",
-    response_model=QGVehicleStatusRead,
-)
-async def update_vehicle_status(
-    vehicle_immatriculation: str,
-    payload: QGVehicleStatusUpdate,
-    session: AsyncSession = Depends(get_postgres_session),
-    sse_manager: SSEManager = Depends(get_sse_manager),
-) -> QGVehicleStatusRead:
-    """
-    Met à jour le statut d'un véhicule identifié par son immatriculation.
-
-    Si le véhicule n'existe pas, une erreur 404 est retournée.
-    Si le statut n'existe pas, une erreur 404 est retournée.
-    """
-    vehicle: Vehicle = await fetch_one_or_404(
-        session,
-        select(Vehicle).where(Vehicle.immatriculation == vehicle_immatriculation),
-        "Vehicle not found",
-    )
-
-    # Récupérer le statut par son label
-    vehicle_status_record: VehicleStatus = await fetch_one_or_404(
-        session,
-        select(VehicleStatus).where(VehicleStatus.label == payload.status_label),
-        f"Vehicle status '{payload.status_label}' not found",
-    )
-
-    vehicle_service = VehicleService(session)
-    try:
-        vehicle_status = await vehicle_service.update_vehicle_status(
-            vehicle, vehicle_status_record.vehicle_status_id
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        ) from None
-
-    response = QGVehicleStatusRead(
-        vehicle_immatriculation=vehicle.immatriculation,
-        status_label=vehicle_status.label,
-        timestamp=payload.timestamp,
-    )
-
-    await sse_manager.notify(
-        Event.VEHICLE_STATUS_UPDATE.value,
-        {
-            "vehicle_id": str(vehicle.vehicle_id),
-            "vehicle_immatriculation": vehicle.immatriculation,
-            "status_label": vehicle_status.label,
-            "timestamp": payload.timestamp.isoformat(),
-        },
-    )
-
-    return response
-
-
 @router.get(
     "/assignment-proposals",
     response_model=QGAssignmentProposalsListRead,
@@ -1006,7 +893,7 @@ async def validate_assignment_proposal(
     proposal_id: UUID,
     session: AsyncSession = Depends(get_postgres_session),
     user: AuthenticatedUser = Depends(get_current_user),
-    sse_manager: SSEManager = Depends(get_sse_manager),
+    rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
 ) -> QGValidateProposalResponse:
     """
     Valide une proposition d'affectation en créant les affectations pour tous les véhicules proposés.
@@ -1063,16 +950,24 @@ async def validate_assignment_proposal(
     engaged_vehicles: list[VehicleAssignmentProposalItem] = []
     failed_vehicles: list[str] = []
 
-    # Send assignments to all vehicles first (broadcast)
+    # Send assignments to all vehicles via RabbitMQ
     for item in proposal.items:
-        await sse_manager.notify(
-            Event.VEHICLE_ASSIGNMENT.value,
-            {
+        assignment_message = {
+            "event": Event.VEHICLE_ASSIGNMENT.value,
+            "payload": {
                 "immatriculation": item.vehicle.immatriculation,
                 "latitude": round(incident.latitude, 6),
                 "longitude": round(incident.longitude, 6),
             },
-        )
+        }
+        try:
+            await rabbitmq.enqueue(
+                Queue.VEHICLE_ASSIGNMENTS,
+                json.dumps(assignment_message).encode(),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            pass  # Log handled by RabbitMQ manager
 
     # Wait and check status for all vehicles with retries
     pending_items = list(proposal.items)
@@ -1110,14 +1005,22 @@ async def validate_assignment_proposal(
         # Re-send assignment to vehicles still pending (retry)
         if pending_items and attempt < max_attempts - 1:
             for item in pending_items:
-                await sse_manager.notify(
-                    Event.VEHICLE_ASSIGNMENT.value,
-                    {
+                assignment_message = {
+                    "event": Event.VEHICLE_ASSIGNMENT.value,
+                    "payload": {
                         "immatriculation": item.vehicle.immatriculation,
                         "latitude": round(incident.latitude, 6),
                         "longitude": round(incident.longitude, 6),
                     },
-                )
+                }
+                try:
+                    await rabbitmq.enqueue(
+                        Queue.VEHICLE_ASSIGNMENTS,
+                        json.dumps(assignment_message).encode(),
+                        timeout=5.0,
+                    )
+                except asyncio.TimeoutError:
+                    pass  # Log handled by RabbitMQ manager
 
     # Identify failed vehicles
     failed_vehicles = [item.vehicle.immatriculation for item in pending_items]
