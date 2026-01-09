@@ -279,6 +279,4 @@ class IncidentStatusMessage(BaseModel):
 
     immatriculation: str
     status: int = Field(ge=0, le=255)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
     timestamp: datetime
