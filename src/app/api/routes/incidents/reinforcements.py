@@ -3,7 +3,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_postgres_session
 from app.api.routes.utils import fetch_one_or_404
@@ -51,9 +50,7 @@ async def get_reinforcement(
 ) -> Reinforcement:
     return await fetch_one_or_404(
         session,
-        select(Reinforcement).where(
-            Reinforcement.reinforcement_id == reinforcement_id
-        ),
+        select(Reinforcement).where(Reinforcement.reinforcement_id == reinforcement_id),
         "Reinforcement not found",
     )
 
@@ -66,9 +63,7 @@ async def update_reinforcement(
 ) -> Reinforcement:
     reinforcement = await fetch_one_or_404(
         session,
-        select(Reinforcement).where(
-            Reinforcement.reinforcement_id == reinforcement_id
-        ),
+        select(Reinforcement).where(Reinforcement.reinforcement_id == reinforcement_id),
         "Reinforcement not found",
     )
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -89,9 +84,7 @@ async def delete_reinforcement(
 ) -> None:
     reinforcement = await fetch_one_or_404(
         session,
-        select(Reinforcement).where(
-            Reinforcement.reinforcement_id == reinforcement_id
-        ),
+        select(Reinforcement).where(Reinforcement.reinforcement_id == reinforcement_id),
         "Reinforcement not found",
     )
     await session.delete(reinforcement)
