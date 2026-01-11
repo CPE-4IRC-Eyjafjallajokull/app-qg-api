@@ -37,6 +37,7 @@ from app.models import (
 from app.schemas.incidents import IncidentDeclarationCreate, IncidentRead
 from app.schemas.qg.assignment_proposals import (
     QGAssignmentProposalRead,
+    QGAssignmentProposalRequest,
     QGAssignmentProposalsListRead,
     QGProposalItem,
     QGRejectProposalResponse,
@@ -183,16 +184,13 @@ async def declare_incident(
     declared_by = user.username or user.subject
     incident_payload = response.model_dump()
 
-    envelope = {
+    queue_envelope = {
         "event": Event.NEW_INCIDENT.value,
         "payload": {
-            "incident": incident_payload,
-            "declared_by": declared_by,
-            "status": "created",
+            "incident_id": incident.incident_id,
         },
     }
-    envelope.update(envelope["payload"])
-    message = json.dumps(jsonable_encoder(envelope)).encode()
+    message = json.dumps(jsonable_encoder(queue_envelope)).encode()
 
     try:
         await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
@@ -853,6 +851,54 @@ async def list_assignment_proposals(
         assignment_proposals=assignment_proposals,
         total=len(assignment_proposals),
     )
+
+
+@router.post(
+    "/assignment-proposals/new",
+    status_code=status.HTTP_201_CREATED,
+)
+async def request_assignment_proposal(
+    payload: QGAssignmentProposalRequest,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+    rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
+) -> dict[str, str]:
+    await fetch_one_or_404(
+        session,
+        select(Incident).where(Incident.incident_id == payload.incident_id),
+        "Incident not found",
+    )
+
+    envelope = {
+        "event": Event.NEW_INCIDENT.value,
+        "payload": {
+            "incident_id": payload.incident_id,
+        },
+    }
+
+    message = json.dumps(jsonable_encoder(envelope)).encode()
+
+    try:
+        await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Message broker unavailable",
+        ) from None
+
+    await sse_manager.notify(
+        Event.VEHICLE_ASSIGNMENT_PROPOSAL_REQUEST.value,
+        {
+            "incident_id": payload.incident_id,
+            "requested_by": user.username or user.subject,
+        },
+    )
+
+    return {
+        "message": "Assignment proposal request enqueued",
+        "incident_id": str(payload.incident_id),
+    }
 
 
 @router.get(

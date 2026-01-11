@@ -9,7 +9,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
-    SmallInteger,
     String,
     func,
     text,
@@ -61,7 +60,9 @@ class Vehicle(Base):
         ForeignKey("energies.energy_id", ondelete="SET NULL"),
         nullable=True,
     )
-    energy_level: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    energy_level: Mapped[Optional[float]] = mapped_column(
+        DOUBLE_PRECISION, nullable=True
+    )
     base_interest_point_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("interest_points.interest_point_id", ondelete="SET NULL"),

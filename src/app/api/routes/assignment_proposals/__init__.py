@@ -65,6 +65,12 @@ async def create_vehicle_assignment_proposal(
         "Incident not found",
     )
 
+    # if payload.proposal_id is None generate a new UUID
+    if payload.proposal_id is None:
+        import uuid
+
+        payload.proposal_id = uuid.uuid4()
+
     proposal_data = payload.model_dump(exclude_unset=True)
     if proposal_data.get("received_at") is None:
         proposal_data.pop("received_at", None)

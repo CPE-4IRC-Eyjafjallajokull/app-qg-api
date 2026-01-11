@@ -6,6 +6,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class QGAssignmentProposalRequest(BaseModel):
+    incident_id: UUID
+
+
 class QGProposalItem(BaseModel):
     incident_phase_id: UUID
     vehicle_id: UUID

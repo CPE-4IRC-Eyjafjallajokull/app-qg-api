@@ -11,7 +11,7 @@ from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
 
 
 class VehicleAssignmentProposalCreate(CreateSchema):
-    proposal_id: UUID
+    proposal_id: UUID | None = None
     incident_id: UUID
     generated_at: datetime
     received_at: datetime | None = None
@@ -20,12 +20,16 @@ class VehicleAssignmentProposalCreate(CreateSchema):
 class VehicleAssignmentProposalUpdate(UpdateSchema):
     generated_at: datetime | None = None
     received_at: datetime | None = None
+    validated_at: datetime | None = None
+    rejected_at: datetime | None = None
 
 
 class VehicleAssignmentProposalRead(ReadSchema):
     proposal_id: UUID
     incident_id: UUID
     generated_at: datetime
+    validated_at: datetime | None = None
+    rejected_at: datetime | None = None
     received_at: datetime
     items: list[VehicleAssignmentProposalItemRead] = []
     missing: list[VehicleAssignmentProposalMissingRead] = []
