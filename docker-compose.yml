@@ -116,7 +116,6 @@ services:
       - POSTGRES_DB=app
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./sql/schemas:/docker-entrypoint-initdb.d:ro
     networks:
       - app-network
     restart: unless-stopped

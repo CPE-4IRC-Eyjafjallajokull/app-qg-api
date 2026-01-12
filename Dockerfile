@@ -38,7 +38,6 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
 COPY src/ ./src/
-COPY sql/ ./sql/
 COPY pyproject.toml README.md ./
 
 # Set environment variables
