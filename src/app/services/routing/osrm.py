@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import ipaddress
+import math
 from typing import Any
+from urllib.parse import quote, urlparse
 
 import httpx
 import polyline
@@ -33,6 +36,7 @@ class OSRMRouter:
     ) -> None:
         config = settings.osrm
         self._base_url = (base_url or config.base_url).rstrip("/")
+        self._validate_base_url(self._base_url)
         self._username = username or config.username
         self._password = password or config.password
         self._timeout_seconds = timeout_seconds or config.timeout_seconds
@@ -42,6 +46,51 @@ class OSRMRouter:
         if self._username and self._password:
             return httpx.BasicAuth(self._username, self._password)
         return None
+
+    @staticmethod
+    def _validate_base_url(base_url: str) -> None:
+        """Valide l'URL de base pour eviter les redirections internes."""
+        parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError("OSRM base_url must use http or https")
+        if not parsed.hostname:
+            raise ValueError("OSRM base_url must include a hostname")
+        if parsed.username or parsed.password:
+            raise ValueError("OSRM base_url must not contain credentials")
+        if parsed.query or parsed.fragment:
+            raise ValueError("OSRM base_url must not include query or fragment")
+
+        try:
+            ip_addr = ipaddress.ip_address(parsed.hostname)
+        except ValueError:
+            return
+
+        if ip_addr.is_private or ip_addr.is_loopback or ip_addr.is_link_local:
+            raise ValueError("OSRM base_url must not target private or loopback IPs")
+
+    @staticmethod
+    def _format_coord(value: float, *, min_value: float, max_value: float) -> str:
+        if not math.isfinite(value):
+            raise RoutingError("Invalid coordinate value", status_code=400)
+        if value < min_value or value > max_value:
+            raise RoutingError("Coordinate out of range", status_code=400)
+        return f"{value:.6f}"
+
+    def _build_route_path(
+        self,
+        *,
+        from_lat: float,
+        from_lon: float,
+        to_lat: float,
+        to_lon: float,
+    ) -> str:
+        from_lat_str = self._format_coord(from_lat, min_value=-90.0, max_value=90.0)
+        from_lon_str = self._format_coord(from_lon, min_value=-180.0, max_value=180.0)
+        to_lat_str = self._format_coord(to_lat, min_value=-90.0, max_value=90.0)
+        to_lon_str = self._format_coord(to_lon, min_value=-180.0, max_value=180.0)
+        coordinates = f"{from_lon_str},{from_lat_str};{to_lon_str},{to_lat_str}"
+        safe_coordinates = quote(coordinates, safe=";,.-0123456789")
+        return f"/route/v1/driving/{safe_coordinates}"
 
     async def route(
         self,
@@ -70,8 +119,12 @@ class OSRMRouter:
         """
         # Format OSRM: /route/v1/{profile}/{coordinates}
         # Les coordonnées sont au format lon,lat;lon,lat
-        coordinates = f"{from_lon},{from_lat};{to_lon},{to_lat}"
-        url = f"{self._base_url}/route/v1/driving/{coordinates}"
+        route_path = self._build_route_path(
+            from_lat=from_lat,
+            from_lon=from_lon,
+            to_lat=to_lat,
+            to_lon=to_lon,
+        )
 
         # Paramètres OSRM
         params: dict[str, Any] = {
@@ -86,16 +139,19 @@ class OSRMRouter:
 
         log.debug(
             "osrm.route.request",
-            url=url,
+            url=f"{self._base_url}{route_path}",
             from_coords=(from_lat, from_lon),
             to_coords=(to_lat, to_lon),
             snap_start=snap_start,
         )
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+            async with httpx.AsyncClient(
+                base_url=self._base_url,
+                timeout=self._timeout_seconds,
+            ) as client:
                 response = await client.get(
-                    url,
+                    route_path,
                     params=params,
                     auth=self._get_auth(),
                 )
