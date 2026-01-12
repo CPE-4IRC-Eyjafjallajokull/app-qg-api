@@ -282,6 +282,18 @@ class TelemetryHandler:
                     },
                 )
 
+                await self._sse_manager.notify(
+                    Event.INCIDENT_PHASE_UPDATE.value,
+                    {
+                        "incident_id": str(incident_phase.incident_id),
+                        "incident_phase_id": str(incident_phase.incident_phase_id),
+                        "updated_by": vehicle.immatriculation,
+                        "action": "phase_ended",
+                        "phase_ended_at": data.timestamp.isoformat(),
+                        "incident_ended": incident_ended,
+                    },
+                )
+
 
 class IncidentStatusMessage(BaseModel):
     """Schema for incident status update from gateway."""

@@ -41,7 +41,7 @@ from app.services.messaging.rabbitmq import RabbitMQManager
 from app.services.vehicle_assignments import (
     VehicleAssignmentTarget,
     build_assignment_event_payload,
-    send_assignment_to_vehicles_and_wait_for_ack,
+    create_assignments_and_wait_for_ack,
 )
 
 router = APIRouter(prefix="/assignment-proposals")
@@ -305,38 +305,36 @@ async def validate_assignment_proposal(
         for item in proposal.items
     ]
 
-    (
-        engaged_targets,
-        failed_targets,
-    ) = await send_assignment_to_vehicles_and_wait_for_ack(
-        session=session,
-        rabbitmq=rabbitmq,
-        targets=targets,
-        incident_latitude=incident.latitude,
-        incident_longitude=incident.longitude,
-        engaged_status_label="Engagé",
-        max_attempts=max_attempts,
-        retry_delay_seconds=1.0,
-    )
-
-    engaged_vehicle_ids = {target.vehicle_id for target in engaged_targets}
-    engaged_items = [
-        item for item in proposal.items if item.vehicle_id in engaged_vehicle_ids
-    ]
-    failed_vehicles = [target.immatriculation for target in failed_targets]
-
-    assignments_created: list[VehicleAssignment] = []
-    for item in engaged_items:
-        assignment = VehicleAssignment(
+    assignments = [
+        VehicleAssignment(
             vehicle_id=item.vehicle_id,
             incident_phase_id=item.incident_phase_id,
             assigned_at=now,
             assigned_by_operator_id=operator_id,
-            validated_at=now,
-            validated_by_operator_id=operator_id,
         )
-        session.add(assignment)
-        assignments_created.append(assignment)
+        for item in proposal.items
+    ]
+    (
+        engaged_assignments,
+        failed_targets,
+    ) = await create_assignments_and_wait_for_ack(
+        session=session,
+        rabbitmq=rabbitmq,
+        assignments=assignments,
+        targets=targets,
+        incident_latitude=incident.latitude,
+        incident_longitude=incident.longitude,
+        engaged_status_label="Engagé",
+        validated_by_operator_id=operator_id,
+        max_attempts=max_attempts,
+        retry_delay_seconds=1.0,
+    )
+
+    engaged_vehicle_ids = {assignment.vehicle_id for assignment in engaged_assignments}
+    engaged_items = [
+        item for item in proposal.items if item.vehicle_id in engaged_vehicle_ids
+    ]
+    failed_vehicles = [target.immatriculation for target in failed_targets]
 
     # Mark proposal as validated if at least one vehicle was assigned
     if engaged_items:
@@ -355,13 +353,13 @@ async def validate_assignment_proposal(
         # We still return success but could log or notify about failures
         # TODO: Implement logging or notification for failed vehicles
 
-    if assignments_created:
+    if engaged_assignments:
         vehicle_by_id = {
             item.vehicle_id: item.vehicle
             for item in proposal.items
             if item.vehicle is not None
         }
-        for assignment in assignments_created:
+        for assignment in engaged_assignments:
             await sse_manager.notify(
                 Event.VEHICLE_ASSIGNMENT.value,
                 build_assignment_event_payload(

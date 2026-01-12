@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Iterable, Sequence
 from uuid import UUID
 
@@ -75,6 +76,57 @@ async def send_assignment_to_vehicles_and_wait_for_ack(
             )
 
     return engaged_targets, pending_targets
+
+
+async def create_assignments_and_wait_for_ack(
+    session: AsyncSession,
+    rabbitmq: RabbitMQManager,
+    assignments: Sequence[VehicleAssignment],
+    targets: Sequence[VehicleAssignmentTarget],
+    incident_latitude: float,
+    incident_longitude: float,
+    engaged_status_label: str,
+    validated_by_operator_id: UUID | None,
+    max_attempts: int = 5,
+    retry_delay_seconds: float = 1.0,
+) -> tuple[list[VehicleAssignment], list[VehicleAssignmentTarget]]:
+    if not assignments:
+        return [], []
+
+    session.add_all(assignments)
+    await session.commit()
+
+    (
+        engaged_targets,
+        failed_targets,
+    ) = await send_assignment_to_vehicles_and_wait_for_ack(
+        session=session,
+        rabbitmq=rabbitmq,
+        targets=targets,
+        incident_latitude=incident_latitude,
+        incident_longitude=incident_longitude,
+        engaged_status_label=engaged_status_label,
+        max_attempts=max_attempts,
+        retry_delay_seconds=retry_delay_seconds,
+    )
+
+    engaged_vehicle_ids = {target.vehicle_id for target in engaged_targets}
+    failed_vehicle_ids = {target.vehicle_id for target in failed_targets}
+    now = datetime.now(timezone.utc)
+
+    engaged_assignments: list[VehicleAssignment] = []
+    for assignment in assignments:
+        if assignment.vehicle_id in failed_vehicle_ids:
+            await session.delete(assignment)
+            continue
+        if assignment.vehicle_id in engaged_vehicle_ids:
+            assignment.validated_at = now
+            assignment.validated_by_operator_id = validated_by_operator_id
+            engaged_assignments.append(assignment)
+
+    await session.commit()
+
+    return engaged_assignments, failed_targets
 
 
 def build_assignment_event_payload(

@@ -23,7 +23,7 @@ from app.services.messaging.rabbitmq import RabbitMQManager
 from app.services.vehicle_assignments import (
     VehicleAssignmentTarget,
     build_assignment_event_payload,
-    send_assignment_to_vehicles_and_wait_for_ack,
+    create_assignments_and_wait_for_ack,
 )
 from app.services.vehicles import VehicleService
 
@@ -65,6 +65,84 @@ async def list_all_vehicles(
     return QGVehiclesListRead(
         vehicles=vehicle_details,
         total=len(vehicle_details),
+    )
+
+
+@router.get(
+    "/{immatriculation}/assignment",
+    response_model=QGVehicleAssignmentDetail,
+)
+async def get_vehicle_assignment(
+    immatriculation: str,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> QGVehicleAssignmentDetail:
+    vehicle: Vehicle = await fetch_one_or_404(
+        session,
+        select(Vehicle)
+        .options(selectinload(Vehicle.vehicle_type))
+        .where(Vehicle.immatriculation == immatriculation),
+        "Vehicle not found",
+    )
+
+    if vehicle.vehicle_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vehicle type not found",
+        )
+
+    assignment = await session.scalar(
+        select(VehicleAssignment)
+        .options(
+            selectinload(VehicleAssignment.incident_phase).selectinload(
+                IncidentPhase.phase_type
+            )
+        )
+        .where(
+            VehicleAssignment.vehicle_id == vehicle.vehicle_id,
+            VehicleAssignment.unassigned_at.is_(None),
+            VehicleAssignment.incident_phase_id.is_not(None),
+        )
+        .order_by(VehicleAssignment.assigned_at.desc())
+        .limit(1)
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle has no active assignment",
+        )
+
+    vehicle_type = vehicle.vehicle_type
+    phase_type = (
+        assignment.incident_phase.phase_type if assignment.incident_phase else None
+    )
+
+    return QGVehicleAssignmentDetail(
+        vehicle_assignment_id=assignment.vehicle_assignment_id,
+        vehicle_id=assignment.vehicle_id,
+        incident_phase_id=assignment.incident_phase_id,
+        assigned_at=assignment.assigned_at,
+        assigned_by_operator_id=assignment.assigned_by_operator_id,
+        validated_at=assignment.validated_at,
+        validated_by_operator_id=assignment.validated_by_operator_id,
+        unassigned_at=assignment.unassigned_at,
+        notes=assignment.notes,
+        vehicle=QGVehicleSummary(
+            vehicle_id=vehicle.vehicle_id,
+            immatriculation=vehicle.immatriculation,
+            vehicle_type=QGVehicleTypeRef(
+                vehicle_type_id=vehicle_type.vehicle_type_id,
+                code=vehicle_type.code,
+                label=vehicle_type.label,
+            ),
+        ),
+        phase_type=QGPhaseTypeRef(
+            phase_type_id=phase_type.phase_type_id,
+            code=phase_type.code,
+            label=phase_type.label,
+        )
+        if phase_type
+        else None,
     )
 
 
@@ -140,31 +218,38 @@ async def assign_vehicle_to_incident_phase(
             operator_id = operator.operator_id
 
     max_attempts = 5
-    (
-        engaged_targets,
-        failed_targets,
-    ) = await send_assignment_to_vehicles_and_wait_for_ack(
+    now = datetime.now(timezone.utc)
+    assignment = VehicleAssignment(
+        vehicle_id=vehicle.vehicle_id,
+        incident_phase_id=incident_phase.incident_phase_id,
+        assigned_at=now,
+        assigned_by_operator_id=operator_id,
+    )
+    targets = [
+        VehicleAssignmentTarget(
+            vehicle_id=vehicle.vehicle_id,
+            immatriculation=vehicle.immatriculation,
+        )
+    ]
+    engaged_assignments, failed_targets = await create_assignments_and_wait_for_ack(
         session=session,
         rabbitmq=rabbitmq,
-        targets=[
-            VehicleAssignmentTarget(
-                vehicle_id=vehicle.vehicle_id,
-                immatriculation=vehicle.immatriculation,
-            )
-        ],
+        assignments=[assignment],
+        targets=targets,
         incident_latitude=incident_phase.incident.latitude,
         incident_longitude=incident_phase.incident.longitude,
         engaged_status_label="Engagé",
+        validated_by_operator_id=operator_id,
         max_attempts=max_attempts,
         retry_delay_seconds=1.0,
     )
 
-    if failed_targets or not engaged_targets:
+    if failed_targets or not engaged_assignments:
         log.warning(
             "qg.vehicle_assign.ack_failed",
             vehicle_id=payload.vehicle_id,
             incident_phase_id=payload.incident_phase_id,
-            engaged=len(engaged_targets),
+            engaged=len(engaged_assignments),
             failed=len(failed_targets),
         )
         failed_vehicles = [target.immatriculation for target in failed_targets]
@@ -176,18 +261,7 @@ async def assign_vehicle_to_incident_phase(
             ),
         )
 
-    now = datetime.now(timezone.utc)
-    assignment = VehicleAssignment(
-        vehicle_id=vehicle.vehicle_id,
-        incident_phase_id=incident_phase.incident_phase_id,
-        assigned_at=now,
-        assigned_by_operator_id=operator_id,
-        validated_at=now,
-        validated_by_operator_id=operator_id,
-    )
-    session.add(assignment)
-    await session.flush()
-
+    assignment = engaged_assignments[0]
     vehicle_type = vehicle.vehicle_type
     phase_type = incident_phase.phase_type
 
@@ -224,18 +298,6 @@ async def assign_vehicle_to_incident_phase(
         incident_phase.incident_id,
         vehicle,
     )
-
-    try:
-        await session.commit()
-    except Exception as exc:
-        log.error(
-            "qg.vehicle_assign.commit_failed",
-            vehicle_id=vehicle.vehicle_id,
-            incident_phase_id=incident_phase.incident_phase_id,
-            error=str(exc),
-            exc_info=True,
-        )
-        raise
 
     log.info(
         "qg.vehicle_assign.saved",
