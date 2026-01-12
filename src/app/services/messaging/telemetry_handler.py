@@ -241,8 +241,17 @@ class TelemetryHandler:
                 # 1. Mark the phase as ended
                 incident_phase.ended_at = data.timestamp
 
-                # 2. Unassign the vehicle from this assignment
-                assignment.unassigned_at = data.timestamp
+                # 2. Unassign all vehicles linked to this phase
+                phase_assignments_result = await session.execute(
+                    select(VehicleAssignment).where(
+                        VehicleAssignment.incident_phase_id
+                        == incident_phase.incident_phase_id,
+                        VehicleAssignment.unassigned_at.is_(None),
+                    )
+                )
+                phase_assignments = phase_assignments_result.scalars().all()
+                for phase_assignment in phase_assignments:
+                    phase_assignment.unassigned_at = data.timestamp
 
                 # 3. Check if all phases of the incident are ended
                 incident = incident_phase.incident
