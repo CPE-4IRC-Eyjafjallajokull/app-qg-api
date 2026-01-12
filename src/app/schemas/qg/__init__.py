@@ -22,7 +22,6 @@ from app.schemas.qg.engagements import (
     QGVehicleAssignmentDetail,
 )
 from app.schemas.qg.incidents import QGIncidentPhaseCreate, QGIncidentRead
-from app.schemas.qg.incidents import QGIncidentRead
 from app.schemas.qg.situation import QGIncidentSituationRead
 from app.schemas.qg.vehicles import (
     QGVehicleAssignRequest,

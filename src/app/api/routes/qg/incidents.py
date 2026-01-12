@@ -159,6 +159,7 @@ async def declare_incident(
 
     return response
 
+
 @router.post(
     "/{incident_id}/phases/new",
     response_model=QGIncidentRead,
@@ -284,6 +285,7 @@ async def request_assignment_for_incident(
         "message": "Assignment proposal request enqueued",
         "incident_id": str(incident_id),
     }
+
 
 @router.get(
     "/{incident_id}/situation",
@@ -592,8 +594,7 @@ async def list_incident_casualties(
         casualties=casualty_details,
         stats=stats,
     )
-    
-    
+
 
 @router.post(
     "/{incident_id}/{phase_id}/request-assignment",
