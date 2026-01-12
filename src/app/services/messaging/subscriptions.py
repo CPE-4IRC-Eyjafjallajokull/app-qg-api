@@ -31,7 +31,7 @@ log = get_logger(__name__)
 # --- Pydantic schemas for RabbitMQ message parsing ---
 
 
-class ProposalItemMessage(BaseModel):
+class ProposalVehicleMessage(BaseModel):
     incident_phase_id: UUID
     vehicle_id: UUID
     distance_km: float = Field(ge=0)
@@ -39,15 +39,21 @@ class ProposalItemMessage(BaseModel):
     route_geometry: LineStringGeometry
     energy_level: float = Field(ge=0, le=1)
     score: float = Field(ge=0, le=1)
-    rationale: str | None = None
+    rank: int = Field(ge=1)
+
+
+class MissingVehicleMessage(BaseModel):
+    incident_phase_id: UUID
+    vehicle_type_id: UUID
+    missing_quantity: int = Field(ge=0)
 
 
 class ProposalMessage(BaseModel):
     proposal_id: UUID
     incident_id: UUID
     generated_at: datetime
-    proposals: list[ProposalItemMessage] = []
-    missing_by_vehicle_type: dict[UUID, int] = {}
+    vehicles_to_send: list[ProposalVehicleMessage] = []
+    missing: list[MissingVehicleMessage] = []
 
 
 class ApplicationSubscriptions(RabbitMQSubscriptionService):
@@ -67,7 +73,7 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
 
         # Register event handlers once at init time
         self.on(
-            Event.VEHICLE_ASSIGNMENT_PROPOSAL.value,
+            Event.ASSIGNMENT_PROPOSAL.value,
             self._handle_vehicle_assignment_proposal,
         )
         self.on(
@@ -109,13 +115,11 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
 
         # Forward to SSE without route_geometry
         sse_payload = self._build_sse_payload(data)
-        await self._sse_manager.notify(
-            Event.VEHICLE_ASSIGNMENT_PROPOSAL.value, sse_payload
-        )
+        await self._sse_manager.notify(Event.ASSIGNMENT_PROPOSAL.value, sse_payload)
         log.info(
             "subscription.event.forwarded",
             queue=message.queue,
-            event_name=Event.VEHICLE_ASSIGNMENT_PROPOSAL.value,
+            event_name=Event.ASSIGNMENT_PROPOSAL.value,
         )
 
     async def _store_proposal(self, data: ProposalMessage, queue: str) -> None:
@@ -151,46 +155,31 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
             )
             session.add(proposal)
 
-            # Create items with rank per phase
-            phase_ranks: dict[UUID, int] = {}
-            for item in data.proposals:
-                phase_ranks[item.incident_phase_id] = (
-                    phase_ranks.get(item.incident_phase_id, 0) + 1
-                )
+            # Create items using rank provided by the engine
+            for item in data.vehicles_to_send:
                 session.add(
                     VehicleAssignmentProposalItem(
                         proposal_id=data.proposal_id,
                         incident_phase_id=item.incident_phase_id,
                         vehicle_id=item.vehicle_id,
-                        proposal_rank=phase_ranks[item.incident_phase_id],
+                        proposal_rank=item.rank,
                         distance_km=item.distance_km,
                         estimated_time_min=int(item.estimated_time_min),
                         route_geometry=item.route_geometry.model_dump(),
                         energy_level=item.energy_level,
                         score=item.score,
-                        rationale=item.rationale,
                     )
                 )
 
-            # Create missing entries (use single phase from proposals if available)
-            # Skip if no phase_id can be determined (PK requires non-null incident_phase_id)
-            phase_id = self._infer_phase_id(data.proposals)
-            if phase_id is not None:
-                for vehicle_type_id, quantity in data.missing_by_vehicle_type.items():
-                    session.add(
-                        VehicleAssignmentProposalMissing(
-                            proposal_id=data.proposal_id,
-                            incident_phase_id=phase_id,
-                            vehicle_type_id=vehicle_type_id,
-                            missing_quantity=quantity,
-                        )
+            # Create missing entries per phase
+            for missing in data.missing:
+                session.add(
+                    VehicleAssignmentProposalMissing(
+                        proposal_id=data.proposal_id,
+                        incident_phase_id=missing.incident_phase_id,
+                        vehicle_type_id=missing.vehicle_type_id,
+                        missing_quantity=missing.missing_quantity,
                     )
-            elif data.missing_by_vehicle_type:
-                log.warning(
-                    "subscription.assignment_proposal.missing_skipped",
-                    proposal_id=data.proposal_id,
-                    reason="no_single_phase_id",
-                    missing_count=len(data.missing_by_vehicle_type),
                 )
 
             try:
@@ -208,17 +197,9 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
             "subscription.assignment_proposal.saved",
             proposal_id=data.proposal_id,
             incident_id=data.incident_id,
-            items=len(data.proposals),
-            missing=len(data.missing_by_vehicle_type),
+            items=len(data.vehicles_to_send),
+            missing=len(data.missing),
         )
-
-    @staticmethod
-    def _infer_phase_id(proposals: list[ProposalItemMessage]) -> UUID | None:
-        """Return phase_id if all proposals have the same one, else None."""
-        if not proposals:
-            return None
-        phase_ids = {p.incident_phase_id for p in proposals}
-        return next(iter(phase_ids)) if len(phase_ids) == 1 else None
 
     @staticmethod
     def _build_sse_payload(data: ProposalMessage) -> dict:
@@ -227,7 +208,7 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
             "proposal_id": str(data.proposal_id),
             "incident_id": str(data.incident_id),
             "generated_at": data.generated_at.isoformat(),
-            "proposals": [
+            "vehicles_to_send": [
                 {
                     "incident_phase_id": str(item.incident_phase_id),
                     "vehicle_id": str(item.vehicle_id),
@@ -235,11 +216,16 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
                     "estimated_time_min": item.estimated_time_min,
                     "energy_level": item.energy_level,
                     "score": item.score,
-                    "rationale": item.rationale,
+                    "rank": item.rank,
                 }
-                for item in data.proposals
+                for item in data.vehicles_to_send
             ],
-            "missing_by_vehicle_type": {
-                str(k): v for k, v in data.missing_by_vehicle_type.items()
-            },
+            "missing": [
+                {
+                    "incident_phase_id": str(item.incident_phase_id),
+                    "vehicle_type_id": str(item.vehicle_type_id),
+                    "missing_quantity": item.missing_quantity,
+                }
+                for item in data.missing
+            ],
         }

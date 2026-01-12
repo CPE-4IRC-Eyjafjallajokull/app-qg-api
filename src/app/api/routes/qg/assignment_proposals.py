@@ -20,7 +20,7 @@ from app.api.dependencies import (
 from app.api.routes.utils import fetch_one_or_404
 from app.core.security import AuthenticatedUser
 from app.models import (
-    Incident,
+    IncidentPhase,
     Operator,
     VehicleAssignment,
     VehicleAssignmentProposal,
@@ -30,7 +30,8 @@ from app.schemas.qg.assignment_proposals import (
     QGAssignmentProposalRead,
     QGAssignmentProposalRequest,
     QGAssignmentProposalsListRead,
-    QGProposalItem,
+    QGProposalMissing,
+    QGProposalVehicle,
     QGRejectProposalResponse,
     QGValidateProposalResponse,
 )
@@ -75,22 +76,26 @@ async def list_assignment_proposals(
             generated_at=proposal.generated_at,
             validated_at=proposal.validated_at,
             rejected_at=proposal.rejected_at,
-            proposals=[
-                QGProposalItem(
+            vehicles_to_send=[
+                QGProposalVehicle(
                     incident_phase_id=item.incident_phase_id,
                     vehicle_id=item.vehicle_id,
                     distance_km=item.distance_km,
                     estimated_time_min=item.estimated_time_min,
                     energy_level=item.energy_level,
                     score=item.score,
-                    rationale=item.rationale,
+                    rank=item.proposal_rank,
                 )
                 for item in proposal.items
             ],
-            missing_by_vehicle_type={
-                missing.vehicle_type_id: missing.missing_quantity
+            missing=[
+                QGProposalMissing(
+                    incident_phase_id=missing.incident_phase_id,
+                    vehicle_type_id=missing.vehicle_type_id,
+                    missing_quantity=missing.missing_quantity,
+                )
                 for missing in proposal.missing
-            },
+            ],
         )
         for proposal in proposals
     ]
@@ -102,7 +107,7 @@ async def list_assignment_proposals(
 
 
 @router.post(
-    "/new",
+    "/request",
     status_code=status.HTTP_201_CREATED,
 )
 async def request_assignment_proposal(
@@ -112,16 +117,41 @@ async def request_assignment_proposal(
     sse_manager: SSEManager = Depends(get_sse_manager),
     rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
 ) -> dict[str, str]:
-    await fetch_one_or_404(
+    incident_phase: IncidentPhase = await fetch_one_or_404(
         session,
-        select(Incident).where(Incident.incident_id == payload.incident_id),
-        "Incident not found",
+        select(IncidentPhase).where(
+            IncidentPhase.incident_phase_id == payload.incident_phase_id
+        ),
+        "Incident phase not found",
     )
 
+    vehicles_by_type: dict[UUID, int] = {}
+    for vehicle in payload.vehicles:
+        vehicles_by_type[vehicle.vehicle_type_id] = (
+            vehicles_by_type.get(vehicle.vehicle_type_id, 0) + vehicle.qty
+        )
+
+    if not vehicles_by_type:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one vehicle request is required",
+        )
+
+    vehicles_needed = [
+        {
+            "vehicle_type_id": vehicle_type_id,
+            "quantity": qty,
+            "incident_phase_id": payload.incident_phase_id,
+        }
+        for vehicle_type_id, qty in vehicles_by_type.items()
+        if qty > 0
+    ]
+
     envelope = {
-        "event": Event.NEW_INCIDENT.value,
+        "event": Event.ASSIGNMENT_REQUEST.value,
         "payload": {
-            "incident_id": payload.incident_id,
+            "incident_id": incident_phase.incident_id,
+            "vehicles_needed": vehicles_needed,
         },
     }
 
@@ -136,16 +166,17 @@ async def request_assignment_proposal(
         ) from None
 
     await sse_manager.notify(
-        Event.VEHICLE_ASSIGNMENT_PROPOSAL_REQUEST.value,
+        Event.ASSIGNMENT_REQUEST.value,
         {
-            "incident_id": payload.incident_id,
+            "incident_id": incident_phase.incident_id,
+            "incident_phase_id": payload.incident_phase_id,
             "requested_by": user.username or user.subject,
         },
     )
 
     return {
         "message": "Assignment proposal request enqueued",
-        "incident_id": str(payload.incident_id),
+        "incident_id": str(incident_phase.incident_id),
     }
 
 
@@ -175,22 +206,26 @@ async def get_assignment_proposal(
         proposal_id=proposal.proposal_id,
         incident_id=proposal.incident_id,
         generated_at=proposal.generated_at,
-        proposals=[
-            QGProposalItem(
+        vehicles_to_send=[
+            QGProposalVehicle(
                 incident_phase_id=item.incident_phase_id,
                 vehicle_id=item.vehicle_id,
                 distance_km=item.distance_km,
                 estimated_time_min=item.estimated_time_min,
                 energy_level=item.energy_level,
                 score=item.score,
-                rationale=item.rationale,
+                rank=item.proposal_rank,
             )
             for item in proposal.items
         ],
-        missing_by_vehicle_type={
-            missing.vehicle_type_id: missing.missing_quantity
+        missing=[
+            QGProposalMissing(
+                incident_phase_id=missing.incident_phase_id,
+                vehicle_type_id=missing.vehicle_type_id,
+                missing_quantity=missing.missing_quantity,
+            )
             for missing in proposal.missing
-        },
+        ],
     )
 
 

@@ -18,7 +18,6 @@ class VehicleAssignmentProposalItemBase:
     route_geometry: LineStringGeometry
     energy_level: float = Field(ge=0, le=1)
     score: float = Field(ge=0, le=1)
-    rationale: str | None = None
 
 
 class VehicleAssignmentProposalItemCreate(
@@ -34,7 +33,6 @@ class VehicleAssignmentProposalItemUpdate(UpdateSchema):
     route_geometry: LineStringGeometry | None = None
     energy_level: float | None = Field(default=None, ge=0, le=1)
     score: float | None = Field(default=None, ge=0, le=1)
-    rationale: str | None = None
 
 
 class VehicleAssignmentProposalItemRead(VehicleAssignmentProposalItemBase, ReadSchema):

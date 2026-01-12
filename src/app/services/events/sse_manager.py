@@ -204,7 +204,7 @@ class SSEManager:
                 pass
             try:
                 subscriber.queue.put_nowait(message)
-                log.warning(
+                log.debug(
                     "sse.queue.full",
                     event_name=event_name,
                     kind=subscriber.kind,
@@ -221,7 +221,7 @@ class SSEManager:
                 )
             return
 
-        log.warning(
+        log.debug(
             "sse.queue.full",
             event_name=event_name,
             kind=subscriber.kind,

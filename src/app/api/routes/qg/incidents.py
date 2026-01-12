@@ -28,7 +28,6 @@ from app.models import (
     PhaseType,
     Vehicle,
     VehicleAssignment,
-    VehicleType,
 )
 from app.schemas.incidents import IncidentDeclarationCreate, IncidentRead
 from app.schemas.qg.casualties import (
@@ -46,14 +45,6 @@ from app.schemas.qg.engagements import (
     QGVehicleAssignmentDetail,
 )
 from app.schemas.qg.incidents import QGIncidentPhaseCreate, QGIncidentRead
-from app.schemas.qg.resource_planning import (
-    QGPhaseRequirements,
-    QGRequirement,
-    QGRequirementGap,
-    QGRequirementGroup,
-    QGResourcePlanningRead,
-    QGVehicleAvailability,
-)
 from app.schemas.qg.situation import (
     QGActivePhase,
     QGCasualtiesSummary,
@@ -138,10 +129,14 @@ async def declare_incident(
     declared_by = user.username or user.subject
     incident_payload = response.model_dump()
 
+    qg_service = QGService(session)
+    vehicles_needed = await qg_service.build_assignment_request(incident.incident_id)
+
     queue_envelope = {
-        "event": Event.NEW_INCIDENT.value,
+        "event": Event.ASSIGNMENT_REQUEST.value,
         "payload": {
             "incident_id": incident.incident_id,
+            "vehicles_needed": vehicles_needed,
         },
     }
     message = json.dumps(jsonable_encoder(queue_envelope)).encode()
@@ -163,7 +158,6 @@ async def declare_incident(
     )
 
     return response
-
 
 @router.post(
     "/{incident_id}/phases/new",
@@ -239,6 +233,57 @@ async def create_incident_phase(
 
     return response
 
+
+@router.post(
+    "/{incident_id}/request-assignment",
+    status_code=status.HTTP_201_CREATED,
+)
+async def request_assignment_for_incident(
+    incident_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+    rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
+) -> dict[str, str]:
+    await fetch_one_or_404(
+        session,
+        select(Incident).where(Incident.incident_id == incident_id),
+        "Incident not found",
+    )
+
+    qg_service = QGService(session)
+    vehicles_needed = await qg_service.build_assignment_request(incident_id)
+
+    queue_envelope = {
+        "event": Event.ASSIGNMENT_REQUEST.value,
+        "payload": {
+            "incident_id": incident_id,
+            "vehicles_needed": vehicles_needed,
+        },
+    }
+
+    message = json.dumps(jsonable_encoder(queue_envelope)).encode()
+
+    try:
+        await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Message broker unavailable",
+        ) from None
+
+    await sse_manager.notify(
+        Event.ASSIGNMENT_REQUEST.value,
+        {
+            "incident_id": incident_id,
+            "requested_by": user.username or user.subject,
+        },
+    )
+
+    return {
+        "message": "Assignment proposal request enqueued",
+        "incident_id": str(incident_id),
+    }
 
 @router.get(
     "/{incident_id}/situation",
@@ -375,190 +420,6 @@ async def get_incident_situation(
         phases_active=phases_active,
         resources=resources,
         casualties=casualties,
-    )
-
-
-@router.get(
-    "/{incident_id}/planification-ressources",
-    response_model=QGResourcePlanningRead,
-)
-async def get_resource_planning(
-    incident_id: UUID, session: AsyncSession = Depends(get_postgres_session)
-) -> QGResourcePlanningRead:
-    """
-    Récupère les besoins en ressources pour un incident donné, ainsi que la disponibilité actuelle
-    des véhicules et les écarts éventuels.
-
-    Retourne un objet contenant :
-    - Les besoins par phase et groupe de besoins
-    - La disponibilité des véhicules par type
-    - Les écarts entre les besoins et la disponibilité
-    """
-    await fetch_one_or_404(
-        session,
-        select(Incident).where(Incident.incident_id == incident_id),
-        "Incident not found",
-    )
-
-    qg_service = QGService(session)
-    phase_type_ids = await qg_service.get_active_phase_type_ids(incident_id)
-
-    # Récupérer tous les PhaseType actifs pour initialiser la map
-    active_phase_types = await qg_service.fetch_active_phase_types(phase_type_ids)
-
-    # Initialiser phase_requirements_map avec toutes les phases actives
-    phase_requirements_map: dict[UUID, QGPhaseRequirements] = {}
-    for phase_type in active_phase_types:
-        phase_requirements_map[phase_type.phase_type_id] = QGPhaseRequirements(
-            phase_type=QGPhaseTypeRef(
-                phase_type_id=phase_type.phase_type_id,
-                code=phase_type.code,
-                label=phase_type.label,
-            ),
-            groups=[],
-        )
-
-    # Récupérer et ajouter les groupes de besoins
-    groups = await qg_service.fetch_requirement_groups(phase_type_ids)
-    for group in groups:
-        phase_type = group.phase_type
-        phase_entry = phase_requirements_map.get(phase_type.phase_type_id)
-
-        requirements = [
-            QGRequirement(
-                vehicle_type=QGVehicleTypeRef(
-                    vehicle_type_id=requirement.vehicle_type_id,
-                    code=requirement.vehicle_type.code,
-                    label=requirement.vehicle_type.label,
-                ),
-                min_quantity=requirement.min_quantity,
-                max_quantity=requirement.max_quantity,
-                mandatory=requirement.mandatory,
-                preference_rank=requirement.preference_rank,
-            )
-            for requirement in group.requirements
-        ]
-
-        if phase_entry:
-            phase_entry.groups.append(
-                QGRequirementGroup(
-                    group_id=group.group_id,
-                    label=group.label,
-                    rule=group.rule,
-                    min_total=group.min_total,
-                    max_total=group.max_total,
-                    priority=group.priority,
-                    is_hard=group.is_hard,
-                    requirements=sorted(
-                        requirements,
-                        key=lambda req: (
-                            req.preference_rank is None,
-                            req.preference_rank or 0,
-                        ),
-                    ),
-                )
-            )
-
-    for phase_entry in phase_requirements_map.values():
-        phase_entry.groups.sort(
-            key=lambda item: (item.priority is None, item.priority or 0)
-        )
-
-    totals_result = await session.execute(
-        select(
-            VehicleType.vehicle_type_id,
-            VehicleType.code,
-            VehicleType.label,
-            func.count(Vehicle.vehicle_id),
-        )
-        .join(Vehicle, Vehicle.vehicle_type_id == VehicleType.vehicle_type_id)
-        .group_by(
-            VehicleType.vehicle_type_id,
-            VehicleType.code,
-            VehicleType.label,
-        )
-    )
-    totals_map = {
-        row[0]: {"code": row[1], "label": row[2], "total": row[3]}
-        for row in totals_result
-    }
-
-    assigned_result = await session.execute(
-        select(
-            Vehicle.vehicle_type_id,
-            func.count(VehicleAssignment.vehicle_assignment_id),
-        )
-        .join(VehicleAssignment, VehicleAssignment.vehicle_id == Vehicle.vehicle_id)
-        .where(VehicleAssignment.unassigned_at.is_(None))
-        .group_by(Vehicle.vehicle_type_id)
-    )
-    assigned_map = {row[0]: row[1] for row in assigned_result}
-
-    required_by_type, vehicle_types = QGService.aggregate_requirements(groups)
-
-    availability = []
-    for vehicle_type_id, data in totals_map.items():
-        assigned = assigned_map.get(vehicle_type_id, 0)
-        availability.append(
-            QGVehicleAvailability(
-                vehicle_type=QGVehicleTypeRef(
-                    vehicle_type_id=vehicle_type_id,
-                    code=data["code"],
-                    label=data["label"],
-                ),
-                available=max(data["total"] - assigned, 0),
-                assigned=assigned,
-                total=data["total"],
-            )
-        )
-    for vehicle_type_id, vehicle_type in vehicle_types.items():
-        if vehicle_type_id in totals_map:
-            continue
-        availability.append(
-            QGVehicleAvailability(
-                vehicle_type=QGVehicleTypeRef(
-                    vehicle_type_id=vehicle_type.vehicle_type_id,
-                    code=vehicle_type.code,
-                    label=vehicle_type.label,
-                ),
-                available=0,
-                assigned=0,
-                total=0,
-            )
-        )
-    availability.sort(key=lambda item: item.vehicle_type.code)
-    availability_map = {
-        entry.vehicle_type.vehicle_type_id: entry.available for entry in availability
-    }
-
-    gaps = []
-    for vehicle_type_id, required in required_by_type.items():
-        available = availability_map.get(vehicle_type_id, 0)
-        missing = max(required - available, 0)
-        if missing <= 0:
-            continue
-        vehicle_type = vehicle_types.get(vehicle_type_id)
-        if not vehicle_type:
-            continue
-        gaps.append(
-            QGRequirementGap(
-                vehicle_type=QGVehicleTypeRef(
-                    vehicle_type_id=vehicle_type.vehicle_type_id,
-                    code=vehicle_type.code,
-                    label=vehicle_type.label,
-                ),
-                missing=missing,
-                severity="HIGH",
-            )
-        )
-
-    return QGResourcePlanningRead(
-        incident_id=incident_id,
-        phase_requirements=sorted(
-            phase_requirements_map.values(), key=lambda item: item.phase_type.code
-        ),
-        availability=availability,
-        gaps=sorted(gaps, key=lambda item: item.vehicle_type.code),
     )
 
 
@@ -731,6 +592,68 @@ async def list_incident_casualties(
         casualties=casualty_details,
         stats=stats,
     )
+    
+    
+
+@router.post(
+    "/{incident_id}/{phase_id}/request-assignment",
+    status_code=status.HTTP_201_CREATED,
+)
+async def request_assignment_for_incident_phase(
+    incident_id: UUID,
+    phase_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+    rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
+) -> dict[str, str]:
+    incident_phase: IncidentPhase = await fetch_one_or_404(
+        session,
+        select(IncidentPhase).where(
+            IncidentPhase.incident_phase_id == phase_id,
+            IncidentPhase.incident_id == incident_id,
+            IncidentPhase.ended_at.is_(None),
+        ),
+        "Incident phase not found",
+    )
+
+    qg_service = QGService(session)
+    vehicles_needed = await qg_service.build_assignment_request_for_phase(
+        incident_phase
+    )
+
+    queue_envelope = {
+        "event": Event.ASSIGNMENT_REQUEST.value,
+        "payload": {
+            "incident_id": incident_id,
+            "vehicles_needed": vehicles_needed,
+        },
+    }
+
+    message = json.dumps(jsonable_encoder(queue_envelope)).encode()
+
+    try:
+        await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Message broker unavailable",
+        ) from None
+
+    await sse_manager.notify(
+        Event.ASSIGNMENT_REQUEST.value,
+        {
+            "incident_id": incident_id,
+            "incident_phase_id": incident_phase.incident_phase_id,
+            "requested_by": user.username or user.subject,
+        },
+    )
+
+    return {
+        "message": "Assignment proposal request enqueued",
+        "incident_id": str(incident_id),
+        "incident_phase_id": str(incident_phase.incident_phase_id),
+    }
 
 
 @router.get(

@@ -8,9 +8,8 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models import Vehicle, VehicleAssignment
+from app.models import Vehicle, VehicleAssignment, VehicleStatus
 from app.services.events import Event
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
@@ -54,18 +53,13 @@ async def send_assignment_to_vehicles_and_wait_for_ack(
 
         still_pending: list[VehicleAssignmentTarget] = []
         for target in pending_targets:
-            vehicle = await session.scalar(
-                select(Vehicle)
-                .options(selectinload(Vehicle.status))
+            status_label = await session.scalar(
+                select(VehicleStatus.label)
+                .join(Vehicle, Vehicle.status_id == VehicleStatus.vehicle_status_id)
                 .where(Vehicle.vehicle_id == target.vehicle_id)
-                .execution_options(populate_existing=True)
             )
 
-            if (
-                vehicle
-                and vehicle.status
-                and vehicle.status.label == engaged_status_label
-            ):
+            if status_label == engaged_status_label:
                 engaged_targets.append(target)
             else:
                 still_pending.append(target)
