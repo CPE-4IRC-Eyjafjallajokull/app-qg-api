@@ -144,3 +144,12 @@ class QGVehiclesListRead(BaseModel):
 
     vehicles: list[QGVehicleDetail]
     total: int
+
+
+class QGVehicleAssignRequest(BaseModel):
+    """Assignation d'un véhicule a une phase d'incident."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vehicle_id: UUID
+    incident_phase_id: UUID

@@ -24,6 +24,7 @@ from app.schemas.qg.incidents import QGIncidentRead
 from app.schemas.qg.resource_planning import QGResourcePlanningRead
 from app.schemas.qg.situation import QGIncidentSituationRead
 from app.schemas.qg.vehicles import (
+    QGVehicleAssignRequest,
     QGVehicleDetail,
     QGVehiclePosition,
     QGVehiclePositionRead,
@@ -51,5 +52,6 @@ __all__ = [
     "QGVehiclesListRead",
     "QGVehiclePosition",
     "QGVehiclePositionRead",
+    "QGVehicleAssignRequest",
     "QGIncidentRead",
 ]
