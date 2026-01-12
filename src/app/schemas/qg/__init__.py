@@ -20,7 +20,7 @@ from app.schemas.qg.engagements import (
     QGIncidentEngagementsRead,
     QGVehicleAssignmentDetail,
 )
-from app.schemas.qg.incidents import QGIncidentRead
+from app.schemas.qg.incidents import QGIncidentPhaseCreate, QGIncidentRead
 from app.schemas.qg.resource_planning import QGResourcePlanningRead
 from app.schemas.qg.situation import QGIncidentSituationRead
 from app.schemas.qg.vehicles import (
@@ -53,5 +53,6 @@ __all__ = [
     "QGVehiclePosition",
     "QGVehiclePositionRead",
     "QGVehicleAssignRequest",
+    "QGIncidentPhaseCreate",
     "QGIncidentRead",
 ]

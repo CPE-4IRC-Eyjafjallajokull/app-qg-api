@@ -45,7 +45,7 @@ from app.schemas.qg.engagements import (
     QGIncidentEngagementsRead,
     QGVehicleAssignmentDetail,
 )
-from app.schemas.qg.incidents import QGIncidentRead
+from app.schemas.qg.incidents import QGIncidentPhaseCreate, QGIncidentRead
 from app.schemas.qg.resource_planning import (
     QGPhaseRequirements,
     QGRequirement,
@@ -159,6 +159,81 @@ async def declare_incident(
         {
             "incident": incident_payload,
             "declared_by": declared_by,
+        },
+    )
+
+    return response
+
+
+@router.post(
+    "/{incident_id}/phases/new",
+    response_model=QGIncidentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_incident_phase(
+    incident_id: UUID,
+    payload: QGIncidentPhaseCreate,
+    session: AsyncSession = Depends(get_postgres_session),
+    user: AuthenticatedUser = Depends(get_current_user),
+    sse_manager: SSEManager = Depends(get_sse_manager),
+) -> QGIncidentRead:
+    """
+    Crée une nouvelle phase pour un incident existant.
+    """
+    # Vérifier que l'incident existe
+    incident = await fetch_one_or_404(
+        session,
+        select(Incident).where(Incident.incident_id == incident_id),
+        "Incident not found",
+    )
+
+    # Vérifier que le type de phase existe
+    await fetch_one_or_404(
+        session,
+        select(PhaseType).where(PhaseType.phase_type_id == payload.phase_type_id),
+        "Phase type not found",
+    )
+
+    # Créer la nouvelle phase
+    started_at = payload.started_at or datetime.now(timezone.utc)
+    phase = IncidentPhase(
+        incident_id=incident_id,
+        phase_type_id=payload.phase_type_id,
+        priority=payload.priority,
+        started_at=started_at,
+        ended_at=payload.ended_at,
+    )
+    session.add(phase)
+    await session.commit()
+
+    # Recharger l'incident avec toutes ses phases
+    incident = await session.scalar(
+        select(Incident)
+        .options(
+            selectinload(Incident.phases).options(
+                selectinload(IncidentPhase.phase_type),
+                selectinload(IncidentPhase.vehicle_assignments),
+            )
+        )
+        .where(Incident.incident_id == incident_id)
+    )
+
+    # Trier les phases par priorité (décroissant)
+    incident.phases = sorted(
+        incident.phases, key=lambda p: p.priority or 0, reverse=True
+    )
+
+    response = QGIncidentRead.model_validate(incident)
+
+    # Notifier via SSE
+    created_by = user.username or user.subject
+    await sse_manager.notify(
+        Event.INCIDENT_PHASE_UPDATE.value,
+        {
+            "incident": response.model_dump(),
+            "updated_by": created_by,
+            "action": "phase_created",
+            "phase_type_id": str(payload.phase_type_id),
         },
     )
 
