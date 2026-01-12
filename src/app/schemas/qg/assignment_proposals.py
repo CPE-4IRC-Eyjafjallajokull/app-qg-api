@@ -3,29 +3,41 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class QGAssignmentProposalRequest(BaseModel):
-    incident_id: UUID
+    incident_phase_id: UUID
+    vehicles: list["QGAssignmentProposalRequestVehicle"]
 
 
-class QGProposalItem(BaseModel):
+class QGAssignmentProposalRequestVehicle(BaseModel):
+    vehicle_type_id: UUID
+    qty: int = Field(ge=1)
+
+
+class QGProposalVehicle(BaseModel):
     incident_phase_id: UUID
     vehicle_id: UUID
     distance_km: float
     estimated_time_min: float
     energy_level: float
     score: float
-    rationale: str | None = None
+    rank: int = Field(ge=1)
+
+
+class QGProposalMissing(BaseModel):
+    incident_phase_id: UUID
+    vehicle_type_id: UUID
+    missing_quantity: int = Field(ge=0)
 
 
 class QGAssignmentProposalRead(BaseModel):
     proposal_id: UUID
     incident_id: UUID
     generated_at: datetime
-    proposals: list[QGProposalItem]
-    missing_by_vehicle_type: dict[UUID, int]
+    vehicles_to_send: list[QGProposalVehicle]
+    missing: list[QGProposalMissing]
     validated_at: datetime | None = None
     rejected_at: datetime | None = None
 

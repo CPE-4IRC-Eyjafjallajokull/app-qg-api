@@ -13,7 +13,6 @@ from sqlalchemy import (
     Index,
     Integer,
     PrimaryKeyConstraint,
-    Text,
     UniqueConstraint,
     desc,
     func,
@@ -147,8 +146,6 @@ class VehicleAssignmentProposalItem(Base, CreatedAtMixin):
     route_geometry: Mapped[dict] = mapped_column(JSONB, nullable=False)
     energy_level: Mapped[float] = mapped_column(Float, nullable=False)
     score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
-    rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
     proposal: Mapped[VehicleAssignmentProposal] = relationship(
         "VehicleAssignmentProposal", back_populates="items"
     )

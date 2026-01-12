@@ -9,7 +9,7 @@ from app.schemas.base import CreateSchema, ReadSchema, UpdateSchema
 
 
 class VehicleAssignmentProposalMissingBase:
-    incident_phase_id: UUID | None = None
+    incident_phase_id: UUID
     vehicle_type_id: UUID
     missing_quantity: int = Field(ge=0)
 

@@ -115,6 +115,8 @@ async def sqlalchemy_error_handler(
         path=request.url.path,
         method=request.method,
         error_type=type(exc).__name__,
+        error=str(exc),
+        exc_info=True,
     )
     return JSONResponse(
         status_code=500,

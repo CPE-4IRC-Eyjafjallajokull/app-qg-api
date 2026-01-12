@@ -1,7 +1,8 @@
 from app.schemas.qg.assignment_proposals import (
     QGAssignmentProposalRead,
     QGAssignmentProposalsListRead,
-    QGProposalItem,
+    QGProposalMissing,
+    QGProposalVehicle,
     QGRejectProposalResponse,
     QGValidateProposalResponse,
 )
@@ -21,7 +22,6 @@ from app.schemas.qg.engagements import (
     QGVehicleAssignmentDetail,
 )
 from app.schemas.qg.incidents import QGIncidentPhaseCreate, QGIncidentRead
-from app.schemas.qg.resource_planning import QGResourcePlanningRead
 from app.schemas.qg.situation import QGIncidentSituationRead
 from app.schemas.qg.vehicles import (
     QGVehicleAssignRequest,
@@ -34,7 +34,8 @@ from app.schemas.qg.vehicles import (
 __all__ = [
     "QGAssignmentProposalRead",
     "QGAssignmentProposalsListRead",
-    "QGProposalItem",
+    "QGProposalMissing",
+    "QGProposalVehicle",
     "QGRejectProposalResponse",
     "QGValidateProposalResponse",
     "QGCasualtiesRead",
@@ -46,7 +47,6 @@ __all__ = [
     "QGVehicleTypeRef",
     "QGIncidentEngagementsRead",
     "QGVehicleAssignmentDetail",
-    "QGResourcePlanningRead",
     "QGIncidentSituationRead",
     "QGVehicleDetail",
     "QGVehiclesListRead",

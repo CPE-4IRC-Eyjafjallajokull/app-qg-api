@@ -12,6 +12,7 @@ from app.api.dependencies import (
     get_sse_manager,
 )
 from app.api.routes.utils import fetch_one_or_404
+from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
 from app.models import IncidentPhase, Operator, Vehicle, VehicleAssignment
 from app.schemas.qg.common import QGPhaseTypeRef, QGVehicleSummary, QGVehicleTypeRef
@@ -27,6 +28,7 @@ from app.services.vehicle_assignments import (
 from app.services.vehicles import VehicleService
 
 router = APIRouter(prefix="/vehicles")
+log = get_logger(__name__)
 
 
 @router.get(
@@ -83,6 +85,12 @@ async def assign_vehicle_to_incident_phase(
 
     Envoie l'affectation au vehicule, attend l'accuse, puis enregistre en base.
     """
+    log.info(
+        "qg.vehicle_assign.requested",
+        vehicle_id=payload.vehicle_id,
+        incident_phase_id=payload.incident_phase_id,
+        user_email=user.email,
+    )
     vehicle: Vehicle = await fetch_one_or_404(
         session,
         select(Vehicle)
@@ -152,6 +160,13 @@ async def assign_vehicle_to_incident_phase(
     )
 
     if failed_targets or not engaged_targets:
+        log.warning(
+            "qg.vehicle_assign.ack_failed",
+            vehicle_id=payload.vehicle_id,
+            incident_phase_id=payload.incident_phase_id,
+            engaged=len(engaged_targets),
+            failed=len(failed_targets),
+        )
         failed_vehicles = [target.immatriculation for target in failed_targets]
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
@@ -171,7 +186,7 @@ async def assign_vehicle_to_incident_phase(
         validated_by_operator_id=operator_id,
     )
     session.add(assignment)
-    await session.commit()
+    await session.flush()
 
     vehicle_type = vehicle.vehicle_type
     phase_type = incident_phase.phase_type
@@ -204,13 +219,30 @@ async def assign_vehicle_to_incident_phase(
         else None,
     )
 
-    await sse_manager.notify(
-        Event.VEHICLE_ASSIGNMENT.value,
-        build_assignment_event_payload(
-            assignment,
-            incident_phase.incident_id,
-            vehicle,
-        ),
+    event_payload = build_assignment_event_payload(
+        assignment,
+        incident_phase.incident_id,
+        vehicle,
     )
+
+    try:
+        await session.commit()
+    except Exception as exc:
+        log.error(
+            "qg.vehicle_assign.commit_failed",
+            vehicle_id=vehicle.vehicle_id,
+            incident_phase_id=incident_phase.incident_phase_id,
+            error=str(exc),
+            exc_info=True,
+        )
+        raise
+
+    log.info(
+        "qg.vehicle_assign.saved",
+        vehicle_id=vehicle.vehicle_id,
+        incident_phase_id=incident_phase.incident_phase_id,
+        assignment_id=assignment.vehicle_assignment_id,
+    )
+    await sse_manager.notify(Event.VEHICLE_ASSIGNMENT.value, event_payload)
 
     return assignment_detail

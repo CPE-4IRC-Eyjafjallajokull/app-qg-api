@@ -38,11 +38,17 @@ def configure_logging(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("hpack").setLevel(logging.WARNING)
 
+    traceback_processor = (
+        structlog.processors.format_exc_info
+        if resolved_log_format == "console"
+        else structlog.processors.dict_tracebacks
+    )
+
     common_processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.processors.dict_tracebacks,
+        traceback_processor,
     ]
 
     renderer = (
