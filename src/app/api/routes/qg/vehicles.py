@@ -14,7 +14,14 @@ from app.api.dependencies import (
 from app.api.routes.utils import fetch_one_or_404
 from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
-from app.models import IncidentPhase, Operator, Vehicle, VehicleAssignment
+from app.models import (
+    IncidentPhase,
+    Operator,
+    Vehicle,
+    VehicleAssignment,
+    VehicleAssignmentProposal,
+    VehicleAssignmentProposalItem,
+)
 from app.schemas.qg.common import QGPhaseTypeRef, QGVehicleSummary, QGVehicleTypeRef
 from app.schemas.qg.engagements import QGVehicleAssignmentDetail
 from app.schemas.qg.vehicles import QGVehicleAssignRequest, QGVehiclesListRead
@@ -47,6 +54,7 @@ async def list_all_vehicles(
     - Position actuelle (dernière position connue)
     - Stocks de consommables
     - Affectation active (si le véhicule est en mission)
+    - Référencé dans une proposition d'affectation en attente
     """
     vehicle_service = VehicleService(session)
 
@@ -54,10 +62,33 @@ async def list_all_vehicles(
 
     vehicle_ids = [vehicle.vehicle_id for vehicle in vehicles]
     positions_map = await vehicle_service.fetch_latest_positions(vehicle_ids)
+    pending_proposal_vehicle_ids: set = set()
+    if vehicle_ids:
+        pending_result = await session.execute(
+            select(VehicleAssignmentProposalItem.vehicle_id)
+            .join(
+                VehicleAssignmentProposal,
+                VehicleAssignmentProposalItem.proposal_id
+                == VehicleAssignmentProposal.proposal_id,
+            )
+            .where(
+                VehicleAssignmentProposalItem.vehicle_id.in_(vehicle_ids),
+                VehicleAssignmentProposal.validated_at.is_(None),
+                VehicleAssignmentProposal.rejected_at.is_(None),
+            )
+            .distinct()
+        )
+        pending_proposal_vehicle_ids = {
+            vehicle_id for (vehicle_id,) in pending_result.all()
+        }
 
     vehicle_details = [
         VehicleService.build_vehicle_detail(
-            vehicle, positions_map.get(vehicle.vehicle_id)
+            vehicle,
+            positions_map.get(vehicle.vehicle_id),
+            referenced_in_pending_proposal=(
+                vehicle.vehicle_id in pending_proposal_vehicle_ids
+            ),
         )
         for vehicle in vehicles
     ]
@@ -122,6 +153,7 @@ async def get_vehicle_assignment(
         vehicle_id=assignment.vehicle_id,
         incident_phase_id=assignment.incident_phase_id,
         assigned_at=assignment.assigned_at,
+        arrived_at=assignment.arrived_at,
         assigned_by_operator_id=assignment.assigned_by_operator_id,
         validated_at=assignment.validated_at,
         validated_by_operator_id=assignment.validated_by_operator_id,
@@ -144,6 +176,86 @@ async def get_vehicle_assignment(
         if phase_type
         else None,
     )
+
+
+@router.get(
+    "/{immatriculation}/assignments",
+    response_model=list[QGVehicleAssignmentDetail],
+)
+async def list_vehicle_assignment_history(
+    immatriculation: str,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> list[QGVehicleAssignmentDetail]:
+    vehicle: Vehicle = await fetch_one_or_404(
+        session,
+        select(Vehicle)
+        .options(selectinload(Vehicle.vehicle_type))
+        .where(Vehicle.immatriculation == immatriculation),
+        "Vehicle not found",
+    )
+
+    if vehicle.vehicle_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vehicle type not found",
+        )
+
+    assignments_result = await session.execute(
+        select(VehicleAssignment)
+        .options(
+            selectinload(VehicleAssignment.incident_phase).selectinload(
+                IncidentPhase.phase_type
+            )
+        )
+        .where(
+            VehicleAssignment.vehicle_id == vehicle.vehicle_id,
+            VehicleAssignment.unassigned_at.is_not(None),
+            VehicleAssignment.incident_phase_id.is_not(None),
+        )
+        .order_by(VehicleAssignment.assigned_at.asc())
+    )
+    assignments = assignments_result.scalars().all()
+
+    vehicle_type = vehicle.vehicle_type
+    vehicle_summary = QGVehicleSummary(
+        vehicle_id=vehicle.vehicle_id,
+        immatriculation=vehicle.immatriculation,
+        vehicle_type=QGVehicleTypeRef(
+            vehicle_type_id=vehicle_type.vehicle_type_id,
+            code=vehicle_type.code,
+            label=vehicle_type.label,
+        ),
+    )
+
+    assignment_details: list[QGVehicleAssignmentDetail] = []
+    for assignment in assignments:
+        phase_type = (
+            assignment.incident_phase.phase_type if assignment.incident_phase else None
+        )
+        assignment_details.append(
+            QGVehicleAssignmentDetail(
+                vehicle_assignment_id=assignment.vehicle_assignment_id,
+                vehicle_id=assignment.vehicle_id,
+                incident_phase_id=assignment.incident_phase_id,
+                assigned_at=assignment.assigned_at,
+                arrived_at=assignment.arrived_at,
+                assigned_by_operator_id=assignment.assigned_by_operator_id,
+                validated_at=assignment.validated_at,
+                validated_by_operator_id=assignment.validated_by_operator_id,
+                unassigned_at=assignment.unassigned_at,
+                notes=assignment.notes,
+                vehicle=vehicle_summary,
+                phase_type=QGPhaseTypeRef(
+                    phase_type_id=phase_type.phase_type_id,
+                    code=phase_type.code,
+                    label=phase_type.label,
+                )
+                if phase_type
+                else None,
+            )
+        )
+
+    return assignment_details
 
 
 @router.post(
@@ -270,6 +382,7 @@ async def assign_vehicle_to_incident_phase(
         vehicle_id=assignment.vehicle_id,
         incident_phase_id=assignment.incident_phase_id,
         assigned_at=assignment.assigned_at,
+        arrived_at=assignment.arrived_at,
         assigned_by_operator_id=assignment.assigned_by_operator_id,
         validated_at=assignment.validated_at,
         validated_by_operator_id=assignment.validated_by_operator_id,

@@ -140,6 +140,7 @@ def build_assignment_event_payload(
         "vehicle_id": assignment.vehicle_id,
         "incident_phase_id": assignment.incident_phase_id,
         "assigned_at": assignment.assigned_at,
+        "arrived_at": assignment.arrived_at,
         "assigned_by_operator_id": assignment.assigned_by_operator_id,
         "validated_at": assignment.validated_at,
         "validated_by_operator_id": assignment.validated_by_operator_id,

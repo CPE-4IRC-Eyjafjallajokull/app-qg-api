@@ -3,6 +3,7 @@ from app.models.assignment_proposals import (
     VehicleAssignmentProposalItem,
     VehicleAssignmentProposalMissing,
 )
+from app.models.assignment_requests import VehicleAssignmentRequest
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 from app.models.casualties import (
     Casualty,
@@ -50,6 +51,7 @@ __all__ = [
     "VehicleAssignmentProposal",
     "VehicleAssignmentProposalItem",
     "VehicleAssignmentProposalMissing",
+    "VehicleAssignmentRequest",
     "Casualty",
     "CasualtyStatus",
     "CasualtyTransport",

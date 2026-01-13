@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
@@ -22,6 +22,16 @@ from app.services.messaging.subscriber import QueueEvent
 from app.services.vehicles import VehicleService
 
 log = get_logger(__name__)
+
+STATUS_LABELS = {
+    0: "Disponible",
+    1: "Engagé",
+    2: "Sur intervention",
+    3: "Transport",
+    4: "Retour",
+    5: "Indisponible",
+    6: "Hors service",
+}
 
 
 class VehiclePositionMessage(BaseModel):
@@ -113,6 +123,11 @@ class TelemetryHandler:
             )
             return
 
+        status_value = message.payload.get("status")
+        if status_value is not None and "status_label" not in message.payload:
+            if isinstance(status_value, int) and status_value in STATUS_LABELS:
+                message.payload["status_label"] = STATUS_LABELS[status_value]
+
         try:
             data = VehicleStatusMessage.model_validate(message.payload)
         except ValidationError as exc:
@@ -155,6 +170,21 @@ class TelemetryHandler:
             await vehicle_service.update_vehicle_status(
                 vehicle, status.vehicle_status_id
             )
+
+            if data.status_label == STATUS_LABELS[2]:
+                assignment_result = await session.execute(
+                    select(VehicleAssignment)
+                    .where(
+                        VehicleAssignment.vehicle_id == vehicle.vehicle_id,
+                        VehicleAssignment.unassigned_at.is_(None),
+                    )
+                    .order_by(VehicleAssignment.assigned_at.desc())
+                    .limit(1)
+                )
+                assignment = assignment_result.scalar_one_or_none()
+                if assignment and assignment.arrived_at is None:
+                    assignment.arrived_at = datetime.now(timezone.utc)
+                    await session.commit()
 
             # Notify SSE clients (frontends)
             await self._sse_manager.notify(

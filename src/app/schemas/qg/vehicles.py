@@ -117,6 +117,7 @@ class QGActiveAssignment(BaseModel):
     vehicle_assignment_id: UUID
     incident_phase_id: UUID | None = None
     assigned_at: datetime
+    arrived_at: datetime | None = None
     assigned_by_operator_id: UUID | None = None
 
 
@@ -135,6 +136,7 @@ class QGVehicleDetail(BaseModel):
     current_position: QGVehiclePosition | None = None
     consumable_stocks: list[QGVehicleConsumableStock]
     active_assignment: QGActiveAssignment | None = None
+    referenced_in_pending_proposal: bool = False
 
 
 class QGVehiclesListRead(BaseModel):

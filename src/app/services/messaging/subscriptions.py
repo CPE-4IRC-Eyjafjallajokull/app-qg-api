@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.logging import get_logger
@@ -13,8 +14,12 @@ from app.models import (
     VehicleAssignmentProposal,
     VehicleAssignmentProposalItem,
     VehicleAssignmentProposalMissing,
+    VehicleAssignmentRequest,
 )
 from app.schemas.routing.route import LineStringGeometry
+from app.services.assignment_proposals import (
+    validate_assignment_proposal as validate_assignment_proposal_service,
+)
 from app.services.db.postgres import PostgresManager
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue, subscription_queues
@@ -59,6 +64,8 @@ class ProposalMessage(BaseModel):
 class ApplicationSubscriptions(RabbitMQSubscriptionService):
     """Application-specific event handlers wired on top of the base subscriber."""
 
+    _AUTO_ACCEPT_DELAY_SECONDS = 120.0
+
     def __init__(
         self,
         rabbitmq: RabbitMQManager,
@@ -70,6 +77,7 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
         self._sse_manager = sse_manager
         self._postgres = postgres
         self._telemetry_handler = TelemetryHandler(postgres, sse_manager)
+        self._auto_accept_tasks: set[asyncio.Task[None]] = set()
 
         # Register event handlers once at init time
         self.on(
@@ -120,6 +128,60 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
             "subscription.event.forwarded",
             queue=message.queue,
             event_name=Event.ASSIGNMENT_PROPOSAL.value,
+        )
+        self._schedule_auto_accept(data.proposal_id)
+
+    def _schedule_auto_accept(self, proposal_id: UUID) -> None:
+        task = asyncio.create_task(self._auto_accept_assignment_proposal(proposal_id))
+        self._auto_accept_tasks.add(task)
+        task.add_done_callback(self._on_auto_accept_done)
+
+    def _on_auto_accept_done(self, task: asyncio.Task[None]) -> None:
+        self._auto_accept_tasks.discard(task)
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:
+            log.error(
+                "subscription.assignment_proposal.auto_accept_task_failed",
+                error=str(exc),
+            )
+
+    async def _auto_accept_assignment_proposal(self, proposal_id: UUID) -> None:
+        await asyncio.sleep(self._AUTO_ACCEPT_DELAY_SECONDS)
+
+        async with self._postgres.sessionmaker()() as session:
+            try:
+                result = await validate_assignment_proposal_service(
+                    session=session,
+                    rabbitmq=self._rabbitmq,
+                    sse_manager=self._sse_manager,
+                    proposal_id=proposal_id,
+                    operator_email=None,
+                )
+            except Exception as exc:
+                status_code = getattr(exc, "status_code", None)
+                if status_code in {400, 404}:
+                    log.info(
+                        "subscription.assignment_proposal.auto_accept_skipped",
+                        proposal_id=str(proposal_id),
+                        status_code=status_code,
+                        detail=getattr(exc, "detail", str(exc)),
+                    )
+                else:
+                    log.error(
+                        "subscription.assignment_proposal.auto_accept_failed",
+                        proposal_id=str(proposal_id),
+                        status_code=status_code,
+                        error=str(exc),
+                    )
+                return
+
+        log.info(
+            "subscription.assignment_proposal.auto_accept_succeeded",
+            proposal_id=str(proposal_id),
+            assignments_created=result.assignments_created,
         )
 
     async def _store_proposal(self, data: ProposalMessage, queue: str) -> None:
@@ -183,6 +245,11 @@ class ApplicationSubscriptions(RabbitMQSubscriptionService):
                 )
 
             try:
+                await session.execute(
+                    delete(VehicleAssignmentRequest).where(
+                        VehicleAssignmentRequest.incident_id == data.incident_id
+                    )
+                )
                 await session.commit()
             except SQLAlchemyError as exc:
                 await session.rollback()

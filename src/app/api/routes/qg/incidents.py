@@ -57,6 +57,11 @@ from app.schemas.qg.situation import (
 from app.schemas.qg.situation import (
     QGCasualtyStatusCount as QGSituationCasualtyStatusCount,
 )
+from app.services.assignment_requests import (
+    ASSIGNMENT_REQUEST_IN_PROGRESS_DETAIL,
+    acquire_assignment_request_lock,
+    release_assignment_request_lock_safely,
+)
 from app.services.events import Event, SSEManager
 from app.services.messaging.queues import Queue
 from app.services.messaging.rabbitmq import RabbitMQManager
@@ -130,6 +135,15 @@ async def declare_incident(
     incident_payload = response.model_dump()
 
     qg_service = QGService(session)
+
+    if not await acquire_assignment_request_lock(
+        session, incident.incident_id, operator_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ASSIGNMENT_REQUEST_IN_PROGRESS_DETAIL,
+        )
+
     vehicles_needed = await qg_service.build_assignment_request(incident.incident_id)
 
     queue_envelope = {
@@ -144,6 +158,7 @@ async def declare_incident(
     try:
         await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
     except asyncio.TimeoutError:
+        await release_assignment_request_lock_safely(session, incident.incident_id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Message broker unavailable",
@@ -252,7 +267,22 @@ async def request_assignment_for_incident(
         "Incident not found",
     )
 
+    operator_id = None
+    if user.email:
+        operator = await session.scalar(
+            select(Operator).where(Operator.email == user.email)
+        )
+        if operator:
+            operator_id = operator.operator_id
+
     qg_service = QGService(session)
+
+    if not await acquire_assignment_request_lock(session, incident_id, operator_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ASSIGNMENT_REQUEST_IN_PROGRESS_DETAIL,
+        )
+
     vehicles_needed = await qg_service.build_assignment_request(incident_id)
 
     queue_envelope = {
@@ -268,6 +298,7 @@ async def request_assignment_for_incident(
     try:
         await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
     except asyncio.TimeoutError:
+        await release_assignment_request_lock_safely(session, incident_id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Message broker unavailable",
@@ -470,6 +501,7 @@ async def list_incident_engagements(
                 vehicle_id=assignment.vehicle_id,
                 incident_phase_id=assignment.incident_phase_id,
                 assigned_at=assignment.assigned_at,
+                arrived_at=assignment.arrived_at,
                 validated_at=assignment.validated_at,
                 validated_by_operator_id=assignment.validated_by_operator_id,
                 unassigned_at=assignment.unassigned_at,
@@ -618,7 +650,22 @@ async def request_assignment_for_incident_phase(
         "Incident phase not found",
     )
 
+    operator_id = None
+    if user.email:
+        operator = await session.scalar(
+            select(Operator).where(Operator.email == user.email)
+        )
+        if operator:
+            operator_id = operator.operator_id
+
     qg_service = QGService(session)
+
+    if not await acquire_assignment_request_lock(session, incident_id, operator_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ASSIGNMENT_REQUEST_IN_PROGRESS_DETAIL,
+        )
+
     vehicles_needed = await qg_service.build_assignment_request_for_phase(
         incident_phase
     )
@@ -636,6 +683,7 @@ async def request_assignment_for_incident_phase(
     try:
         await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
     except asyncio.TimeoutError:
+        await release_assignment_request_lock_safely(session, incident_id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Message broker unavailable",

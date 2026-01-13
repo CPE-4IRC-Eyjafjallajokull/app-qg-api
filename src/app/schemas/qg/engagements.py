@@ -13,6 +13,7 @@ class QGVehicleAssignmentDetail(BaseModel):
     vehicle_id: UUID
     incident_phase_id: UUID
     assigned_at: datetime
+    arrived_at: datetime | None = None
     assigned_by_operator_id: UUID | None = None
     validated_at: datetime | None = None
     validated_by_operator_id: UUID | None = None

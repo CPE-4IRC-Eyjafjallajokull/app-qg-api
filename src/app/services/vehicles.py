@@ -83,6 +83,7 @@ class VehicleService:
     def build_vehicle_detail(
         vehicle: Vehicle,
         latest_position: VehiclePositionLog | None,
+        referenced_in_pending_proposal: bool = False,
     ) -> QGVehicleDetail:
         """Construit le DTO QGVehicleDetail à partir d'un véhicule."""
         # Type de véhicule
@@ -155,6 +156,7 @@ class VehicleService:
                     vehicle_assignment_id=assignment.vehicle_assignment_id,
                     incident_phase_id=assignment.incident_phase_id,
                     assigned_at=assignment.assigned_at,
+                    arrived_at=assignment.arrived_at,
                     assigned_by_operator_id=assignment.assigned_by_operator_id,
                 )
                 break
@@ -170,6 +172,7 @@ class VehicleService:
             current_position=current_position_dto,
             consumable_stocks=consumable_stocks_dto,
             active_assignment=active_assignment_dto,
+            referenced_in_pending_proposal=referenced_in_pending_proposal,
         )
 
     async def create_vehicle_position(

@@ -9,6 +9,7 @@ class VehicleAssignmentBase:
     incident_phase_id: UUID | None = None
     reinforcement_id: UUID | None = None
     assigned_at: datetime | None = None
+    arrived_at: datetime | None = None
     assigned_by_operator_id: UUID | None = None
     validated_at: datetime | None = None
     validated_by_operator_id: UUID | None = None
@@ -23,6 +24,9 @@ class VehicleAssignmentCreate(VehicleAssignmentBase, CreateSchema):
 class VehicleAssignmentUpdate(UpdateSchema):
     incident_phase_id: UUID | None = None
     reinforcement_id: UUID | None = None
+    assigned_at: datetime | None = None
+    arrived_at: datetime | None = None
+    validated_at: datetime | None = None
     unassigned_at: datetime | None = None
     assigned_by_operator_id: UUID | None = None
 
