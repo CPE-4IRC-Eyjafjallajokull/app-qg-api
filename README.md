@@ -27,11 +27,22 @@ src/app/
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (gestionnaire de packages)
-- Docker (optionnel)
+- PostgreSQL, RabbitMQ, Keycloak (le plus simple est d'utiliser `infrastructure-devops`)
+- Docker (optionnel, pour les services locaux)
+
+### Services locaux (recommandé)
+
+```bash
+cd ../infrastructure-devops
+cp env/.env.local.example env/.env.local   # ou: make bootstrap
+make databases
+make keycloak
+```
 
 ### Installation
 
 ```bash
+cp .env.example .env
 uv sync
 ```
 
@@ -60,17 +71,23 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ## 🔐 Auth Keycloak
 
 - Les routes protégées utilisent une dépendance FastAPI avec HTTP Bearer (`Authorization: Bearer <jwt>`). Ajoutez `Depends(get_current_user)` sur les endpoints qui doivent être sécurisés (ex. `/qg/live`). La route `/health` et la doc (`/docs`) restent publiques.
-- Configuration minimale :
+- Configuration minimale (adapter realm/client/audience) :
 
 ```env
 KEYCLOAK_SERVER_URL=http://localhost:8080
-KEYCLOAK_REALM=my-realm
-KEYCLOAK_CLIENT_ID=my-api
+KEYCLOAK_REALM=sdmis
+KEYCLOAK_CLIENT_ID=app-qg-api
+KEYCLOAK_AUDIENCE=app-qg-api
 ```
 
 - Options utiles :
   - `AUTH_DISABLED=true` uniquement pour du développement local rapide.
 - Les clés publiques sont chargées via JWKS (HTTP ou fichier `file:///...`) et mises en cache (`KEYCLOAK_CACHE_TTL_SECONDS`).
+- Roles attendus (realm roles) :
+  - `qg-operator`, `qg-engine` : acces complet
+  - `qg-vehicles` : acces vehicules + lecture reste
+  - `qg-viewer` : lecture seule
+- Le token doit contenir l'**audience** attendue (`aud` inclut `KEYCLOAK_AUDIENCE`). Voir `documentation/apps/auth/keycloak-nextauth-setup.md` pour ajouter un mapper Audience.
 
 ---
 
