@@ -26,10 +26,15 @@ from app.models import (
     IncidentPhase,
     Operator,
     PhaseType,
+    Reinforcement,
     Vehicle,
     VehicleAssignment,
 )
-from app.schemas.incidents import IncidentDeclarationCreate, IncidentRead
+from app.schemas.incidents import (
+    IncidentDeclarationCreate,
+    IncidentRead,
+    ReinforcementRead,
+)
 from app.schemas.qg.casualties import (
     QGCasualtiesRead,
     QGCasualtyDetail,
@@ -186,6 +191,7 @@ async def create_incident_phase(
     session: AsyncSession = Depends(get_postgres_session),
     user: AuthenticatedUser = Depends(get_current_user),
     sse_manager: SSEManager = Depends(get_sse_manager),
+    rabbitmq: RabbitMQManager = Depends(get_rabbitmq_manager),
 ) -> QGIncidentRead:
     """
     Crée une nouvelle phase pour un incident existant.
@@ -239,6 +245,7 @@ async def create_incident_phase(
     response = QGIncidentRead.model_validate(incident)
 
     declared_by = user.username or user.subject
+
     if reopened_incident:
         await sse_manager.notify(
             Event.NEW_INCIDENT.value,
@@ -256,6 +263,51 @@ async def create_incident_phase(
             "updated_by": declared_by,
             "action": "phase_created",
             "phase_type_id": str(payload.phase_type_id),
+        },
+    )
+
+    operator_id = None
+    if user.email:
+        operator = await session.scalar(
+            select(Operator).where(Operator.email == user.email)
+        )
+        if operator:
+            operator_id = operator.operator_id
+
+    qg_service = QGService(session)
+
+    if not await acquire_assignment_request_lock(session, incident_id, operator_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ASSIGNMENT_REQUEST_IN_PROGRESS_DETAIL,
+        )
+
+    vehicles_needed = await qg_service.build_assignment_request_for_phase(phase)
+
+    queue_envelope = {
+        "event": Event.ASSIGNMENT_REQUEST.value,
+        "payload": {
+            "incident_id": incident_id,
+            "vehicles_needed": vehicles_needed,
+        },
+    }
+    message = json.dumps(jsonable_encoder(queue_envelope)).encode()
+
+    try:
+        await rabbitmq.enqueue(Queue.SDMIS_ENGINE, message, timeout=5.0)
+    except asyncio.TimeoutError:
+        await release_assignment_request_lock_safely(session, incident_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Message broker unavailable",
+        ) from None
+
+    await sse_manager.notify(
+        Event.ASSIGNMENT_REQUEST.value,
+        {
+            "incident_id": incident_id,
+            "incident_phase_id": phase.incident_phase_id,
+            "requested_by": declared_by,
         },
     )
 
@@ -715,6 +767,32 @@ async def request_assignment_for_incident_phase(
         "incident_id": str(incident_id),
         "incident_phase_id": str(incident_phase.incident_phase_id),
     }
+
+
+@router.get(
+    "/{incident_id}/{phase_id}/reinforcements",
+    response_model=list[ReinforcementRead],
+)
+async def list_incident_phase_reinforcements(
+    incident_id: UUID,
+    phase_id: UUID,
+    session: AsyncSession = Depends(get_postgres_session),
+) -> list[Reinforcement]:
+    await fetch_one_or_404(
+        session,
+        select(IncidentPhase).where(
+            IncidentPhase.incident_phase_id == phase_id,
+            IncidentPhase.incident_id == incident_id,
+        ),
+        "Incident phase not found",
+    )
+
+    reinforcements_result = await session.execute(
+        select(Reinforcement)
+        .where(Reinforcement.incident_phase_id == phase_id)
+        .order_by(Reinforcement.created_at.desc())
+    )
+    return reinforcements_result.scalars().all()
 
 
 @router.get(
