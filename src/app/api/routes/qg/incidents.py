@@ -196,6 +196,9 @@ async def create_incident_phase(
         select(Incident).where(Incident.incident_id == incident_id),
         "Incident not found",
     )
+    reopened_incident = incident.ended_at is not None
+    if reopened_incident:
+        incident.ended_at = None
 
     # Vérifier que le type de phase existe
     await fetch_one_or_404(
@@ -235,13 +238,22 @@ async def create_incident_phase(
 
     response = QGIncidentRead.model_validate(incident)
 
+    declared_by = user.username or user.subject
+    if reopened_incident:
+        await sse_manager.notify(
+            Event.NEW_INCIDENT.value,
+            {
+                "incident": response.model_dump(),
+                "declared_by": declared_by,
+            },
+        )
+
     # Notifier via SSE
-    created_by = user.username or user.subject
     await sse_manager.notify(
         Event.INCIDENT_PHASE_UPDATE.value,
         {
             "incident": response.model_dump(),
-            "updated_by": created_by,
+            "updated_by": declared_by,
             "action": "phase_created",
             "phase_type_id": str(payload.phase_type_id),
         },
