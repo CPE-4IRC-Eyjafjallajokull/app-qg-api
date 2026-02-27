@@ -38,6 +38,9 @@ services:
     networks:
       - proxy
       - databases
+    mem_limit: 768m
+    cpus: "1.50"
+    pids_limit: 256
     healthcheck:
       test:
         [
